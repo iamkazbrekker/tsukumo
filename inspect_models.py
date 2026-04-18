@@ -1,5 +1,5 @@
 import pickle
-import sys
+import os
 
 def inspect_model(path):
     print(f"Inspecting {path}:")
@@ -18,5 +18,7 @@ def inspect_model(path):
         print("Error loading:", e)
     print("-" * 40)
 
-inspect_model(r'c:\Users\kazbr\projects\tsukumo\public\cardiac-arrest.pkl')
-inspect_model(r'c:\Users\kazbr\projects\tsukumo\public\diabetes.pkl')
+models_dir = 'Agentic AI'
+for file in os.listdir(models_dir):
+    if file.endswith('.pkl'):
+        inspect_model(os.path.join(models_dir, file))
