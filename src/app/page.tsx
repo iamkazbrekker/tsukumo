@@ -636,7 +636,7 @@ function Page() {
 
   // Configuration for the center-bottom prediction overlay
   const predictionOverlayConfig = {
-    src: "/prediction-overlay.png",
+    src: "/bot2.png",
     width: "450px",  // Adjustable width
     height: "auto",
     bottom: "2.8%",    // Adjustable bottom spacing
