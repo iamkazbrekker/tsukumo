@@ -109,7 +109,7 @@ const organThemes: Record<string, any> = {
     title: "Ocular Command Center",
     subtitle: "Vision & Wisdom (Ether Element)",
     color: "indigo",
-    icon: "eyes-thangka-svg",
+    icon: "/assets/thangka/eyes.jpg",
     accent: "text-indigo-400",
     bg: "bg-indigo-500/10",
     border: "border-indigo-500/30",
@@ -125,7 +125,7 @@ const organThemes: Record<string, any> = {
     title: "Cognitive Lotus",
     subtitle: "Consciousness (Vijnana/Spirit)",
     color: "violet",
-    icon: "brain-thangka-svg",
+    icon: "/assets/thangka/brain.jpg",
     accent: "text-violet-400",
     bg: "bg-violet-500/10",
     border: "border-violet-500/30",
@@ -224,46 +224,15 @@ function Page() {
     </svg>
   );
 
-  const renderThangkaIcon = (theme: any, sizeClass = "w-32 h-32") => {
+  const renderThangkaIcon = (theme: any, sizeClass = "w-32 h-32", forceBlend?: string) => {
     if (!theme) return null;
 
-    // Advanced "Artistic Code" Wisdom Eyes
-    if (theme.icon === "eyes-thangka-svg") {
-      return (
-        <div className={`${sizeClass} relative flex items-center justify-center p-2`}>
-          <svg viewBox="0 0 100 60" fill="none" className="w-full h-full" style={{ filter: 'url(#mural-texture) url(#gold-leaf)' }}>
-            <path d="M10 30C10 30 25 10 50 10C75 10 90 30 90 30C90 30 75 50 50 50C25 50 10 30 10 30Z" stroke="#FFD700" strokeWidth="2.5" />
-            <path d="M15 30C15 30 28 15 50 15C72 15 85 30 85 30" stroke="#FFD700" strokeWidth="1" strokeDasharray="1 1" />
-            <circle cx="50" cy="30" r="14" fill="#0c4a6e" stroke="#FFD700" strokeWidth="1.5" />
-            <circle cx="50" cy="30" r="6" fill="#000" />
-            <circle cx="47" cy="27" r="2" fill="#fff" />
-            {/* Sacred Unity Symbol */}
-            <path d="M50 35C50 35 55 42 50 45C45 42 50 35 50 35" fill="#FFD700" />
-          </svg>
-        </div>
-      );
-    }
-
-    // Advanced "Artistic Code" Cognitive Lotus (Brain)
-    if (theme.icon === "brain-thangka-svg") {
-      return (
-        <div className={`${sizeClass} relative flex items-center justify-center p-2`}>
-          <svg viewBox="0 0 100 100" fill="none" className="w-full h-full" style={{ filter: 'url(#mural-texture) url(#gold-leaf)' }}>
-            <circle cx="50" cy="50" r="25" fill="#5b21b6" opacity="0.3" />
-            {[0, 45, 90, 135, 180, 225, 270, 315].map(a => (
-              <g key={a} transform={`rotate(${a} 50 50)`}>
-                <path d="M50 20C40 5 60 5 50 20" fill="#a78bfa" stroke="#FFD700" strokeWidth="1" />
-                <path d="M50 35C45 25 55 25 50 35" fill="#c084fc" stroke="#FFD700" strokeWidth="0.5" />
-              </g>
-            ))}
-            <circle cx="50" cy="50" r="8" fill="#fff" opacity="0.1" />
-            <circle cx="50" cy="50" r="4" stroke="#FFD700" strokeWidth="0.5" strokeDasharray="1 1" />
-          </svg>
-        </div>
-      );
-    }
-
     const isCropped = !!theme.cropSide;
+    const isJpg = theme.icon.endsWith('.jpg');
+    
+    // Use a more appropriate blend mode for Thangka JPEGs on light backgrounds
+    const blendMode = forceBlend || (isJpg ? 'multiply' : 'screen');
+
     return (
       <div
         className={`${sizeClass} relative overflow-hidden flex items-center justify-center`}
@@ -276,8 +245,8 @@ function Page() {
           src={theme.icon}
           alt={theme.title}
           style={{
-            mixBlendMode: 'screen',
-            filter: 'contrast(1.6) brightness(1.2)',
+            mixBlendMode: blendMode as any,
+            filter: isJpg ? 'contrast(1.1) brightness(1.1)' : 'contrast(1.6) brightness(1.2)',
             transform: theme.flip ? 'scaleX(-1)' : 'none',
             position: 'absolute',
             width: isCropped ? '200%' : '100%',
@@ -445,7 +414,7 @@ function Page() {
             {hoveredRegion === region.id && region.isSpecial && organThemes[region.id] && (
               <div className="pointer-events-none animate-heart-pop relative">
                 <div className="absolute inset-0 bg-white/10 blur-2xl rounded-full scale-110 animate-pulse" />
-                {renderThangkaIcon(organThemes[region.id], "w-40 h-40")}
+                {renderThangkaIcon(organThemes[region.id], "w-40 h-40", organThemes[region.id].icon.endsWith('.jpg') ? 'screen' : undefined)}
               </div>
             )}
           </div>
@@ -461,7 +430,7 @@ function Page() {
                 <div className="flex items-center gap-6">
                   <div className={`p-4 ${selectedTheme.bg} rounded-3xl border ${selectedTheme.border} relative group flex items-center justify-center`}>
                     <div className="absolute inset-0 bg-white/5 blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-                    {renderThangkaIcon(selectedTheme, "w-20 h-20")}
+                    {renderThangkaIcon(selectedTheme, "w-20 h-20", selectedTheme.icon.endsWith('.jpg') ? 'screen' : undefined)}
                   </div>
                   <div>
                     <h2 className="text-3xl font-bold text-white tracking-tight">{selectedTheme.title}</h2>
@@ -672,7 +641,7 @@ function Page() {
                     <div className="flex items-center justify-between pb-3" style={{ borderBottom: `1px solid ${sc.divider}` }}>
                       <div className="flex items-center gap-3">
                         <div className="p-1.5 rounded-lg shadow-inner" style={{ backgroundColor: sc.iconBg, border: `1px solid ${sc.iconBorder}` }}>
-                          {renderThangkaIcon(theme, "w-10 h-10")}
+                          {renderThangkaIcon(theme, "w-10 h-10", theme.icon.endsWith('.jpg') ? 'multiply' : 'screen')}
                         </div>
                         <div>
                           <h2 className="text-xl font-bold tracking-tight leading-none" style={{ color: sc.textColor }}>{activeRegionData.name}</h2>
