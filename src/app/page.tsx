@@ -172,7 +172,11 @@ function Page() {
   const lastSourceFileRef = React.useRef<string | null>(null);
   const [liveNotifications, setLiveNotifications] = useState<any[]>([
     { icon: '🔥', title: 'Cardiac Rhythm Shift', desc: 'Heart rate variance detected at 04:38 AM. Minor fluctuation.', time: '2h ago', severity: 'warn' },
-    { icon: '💧', title: 'Hydration Reminder', desc: 'Renal filtration suggests low fluid intake today.', time: '3h ago', severity: 'info' }
+    { icon: '💧', title: 'Hydration Reminder', desc: 'Renal filtration suggests low fluid intake today.', time: '3h ago', severity: 'info' },
+    { icon: '🌬️', title: 'Breath Pattern Normal', desc: 'Respiratory cycle aligned with optimal prana flow.', time: '5h ago', severity: 'ok' },
+    { icon: '⚡', title: 'Neural Coherence Peak', desc: 'Alpha wave synchrony reached meditative state at dawn.', time: '6h ago', severity: 'ok' },
+    { icon: '🌡️', title: 'Agni Metabolic Check', desc: 'Digestive fire steady. Post-meal thermogenesis within range.', time: '8h ago', severity: 'info' },
+    { icon: '👁️', title: 'Ocular Strain Alert', desc: 'Extended screen exposure. Blink rate below baseline.', time: '10h ago', severity: 'warn' }
   ]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -224,7 +228,7 @@ function Page() {
           }
           
           if (newNotifs.length > 0) {
-             setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 2));
+             setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 6));
           }
         }
       } catch (e) {
@@ -419,7 +423,7 @@ function Page() {
         </div>
 
         {/* Parchment Body */}
-        <div className="notif-scroll-body w-full" style={{ maxHeight: '55vh' }}>
+        <div className="notif-scroll-body w-full" style={{ maxHeight: '250px' }}>
 
           {/* Torn edge overlays */}
           <div className="notif-scroll-left-tear" />
@@ -444,7 +448,7 @@ function Page() {
           <div className="notif-scroll-crease" style={{ top: '66%' }} />
 
           {/* Scrollable content area */}
-          <div className="relative z-10 px-5 py-5 overflow-y-auto" style={{ maxHeight: '55vh', scrollbarWidth: 'none' }}>
+          <div className="relative z-10 px-5 py-5 overflow-y-auto" style={{ maxHeight: '250px', scrollbarWidth: 'none' }}>
 
             {/* Title with wax seal */}
             <div className="flex items-center gap-3 mb-5 pb-3" style={{ borderBottom: '1px solid rgba(110, 75, 30, 0.25)' }}>
