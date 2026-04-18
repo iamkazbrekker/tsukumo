@@ -142,6 +142,8 @@ function Page() {
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const [lastHovered, setLastHovered] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
+  const [latestInsights, setLatestInsights] = useState<any>(null);
   const lastSourceFileRef = React.useRef<string | null>(null);
   const [liveNotifications, setLiveNotifications] = useState<any[]>([
     { icon: '🔥', title: 'Cardiac Rhythm Shift', desc: 'Heart rate variance detected at 04:38 AM. Minor fluctuation.', time: '2h ago', severity: 'warn' },
@@ -163,6 +165,8 @@ function Page() {
           lastSourceFileRef.current = data.source_file;
 
           const preds = data.predictions;
+          setLatestInsights(preds);
+
           const newNotifs: any[] = [];
           
           if (preds.cardiac_arrest_risk !== undefined) {
@@ -238,10 +242,10 @@ function Page() {
   // Configuration for the center-bottom prediction overlay
   const predictionOverlayConfig = {
     src: "/prediction-overlay.png",
-    width: "375px",  // Adjustable width
+    width: "1200px",  // Adjustable width
     height: "auto",
-    bottom: "2.7%",    // Adjustable bottom spacing
-    left: "59.7%",     // Middle of the screen horizontally
+    bottom: "2.8%",    // Adjustable bottom spacing
+    left: "42.1%",     // Middle of the screen horizontally
     transform: "translateX(-50%)", // Centers it exactly at 50% left relative to its own width
     zIndex: 40,
   };
@@ -737,14 +741,105 @@ function Page() {
           height: predictionOverlayConfig.height,
           zIndex: predictionOverlayConfig.zIndex,
         }}
-        className="pointer-events-none drop-shadow-xl"
+        className="pointer-events-auto cursor-pointer drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:scale-105 transition-all duration-300 group"
+        onClick={() => setShowInsightsModal(true)}
       >
         <img
           src={predictionOverlayConfig.src}
           alt="Prediction Overlay"
           style={{ width: "100%", height: "100%", objectFit: "contain" }}
         />
+        <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity animate-pulse pointer-events-none" />
       </div>
+      
+      {/* ML Insights Modal */}
+      {showInsightsModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity animate-fade-in" onClick={() => setShowInsightsModal(false)}>
+          <div className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-700 rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.2)]" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-red-500 opacity-80" />
+            
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-4">
+                <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-4">
+                  <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">
+                     <span className="text-blue-400 text-xl block">❖</span>
+                  </div>
+                  System Diagnostics
+                </h2>
+                <button onClick={() => setShowInsightsModal(false)} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {/* Cardiac Card */}
+                 <div className="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50 relative overflow-hidden group">
+                    <div className="absolute -right-10 -top-10 w-32 h-32 bg-red-500/5 rounded-full blur-2xl group-hover:bg-red-500/10 transition-colors" />
+                    <div className="flex items-center gap-3 mb-6 relative z-10">
+                       <span className="text-3xl drop-shadow-md">🫀</span>
+                       <h3 className="text-lg font-bold text-zinc-200">Cardiac Arrest Model</h3>
+                    </div>
+                    <div className="space-y-5 relative z-10">
+                       <div>
+                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Algorithm Alert Status</div>
+                          {latestInsights?.cardiac_arrest_risk === 1 ? (
+                             <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 py-2 px-4 rounded-lg w-max">
+                                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
+                                <span className="text-red-500 font-black text-lg tracking-wider">ELEVATED (1)</span>
+                             </div>
+                          ) : (
+                             <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 py-2 px-4 rounded-lg w-max">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                                <span className="text-emerald-500 font-bold text-lg tracking-wider">NORMAL (0)</span>
+                             </div>
+                          )}
+                       </div>
+                       <p className="text-xs text-zinc-400 font-medium leading-relaxed">
+                          Evaluating ECG variance thresholds & hemodynamic stability vectors via continuous <i>Scikit-Learn</i> streaming interface.
+                       </p>
+                    </div>
+                 </div>
+
+                 {/* Diabetes Card */}
+                 <div className="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50 relative overflow-hidden group">
+                    <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors" />
+                    <div className="flex items-center gap-3 mb-6 relative z-10">
+                       <span className="text-3xl drop-shadow-md">🩸</span>
+                       <h3 className="text-lg font-bold text-zinc-200">Diabetes Predictor</h3>
+                    </div>
+                    <div className="space-y-5 relative z-10">
+                       <div>
+                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Algorithm Alert Status</div>
+                          {latestInsights?.diabetes_risk === 1 ? (
+                             <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 py-2 px-4 rounded-lg w-max">
+                                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
+                                <span className="text-red-500 font-black text-lg tracking-wider">ELEVATED (1)</span>
+                             </div>
+                          ) : (
+                             <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 py-2 px-4 rounded-lg w-max">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                                <span className="text-emerald-500 font-bold text-lg tracking-wider">LOW RISK (0)</span>
+                             </div>
+                          )}
+                       </div>
+                       <p className="text-xs text-zinc-400 font-medium leading-relaxed">
+                          Applying nonlinear <i>XGBoost</i> decision trees over fasting glucose histories alongside synchronized drive repository states.
+                       </p>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="mt-8 pt-5 border-t border-zinc-800/80 flex justify-between items-center bg-zinc-900/50">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Repository Status: Sync Active</span>
+                <span className="flex items-center gap-2 text-[10px] font-black uppercase text-blue-400 tracking-wider">
+                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse outline outline-2 outline-blue-500/30" /> 
+                   Connection Established
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Resources Overlay (Left Bottom) */}
       <div
