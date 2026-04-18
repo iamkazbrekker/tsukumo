@@ -28,3 +28,387 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes heart-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-heart-pop {
+  animation: heart-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* ===== ANCIENT SCROLL UNROLL ANIMATION SYSTEM ===== */
+
+/* The main wrapper unroll — reveals paper from top via max-height */
+@keyframes scroll-unroll {
+  0% {
+    max-height: 0;
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  70% {
+    max-height: 400px;
+  }
+  85% {
+    max-height: 370px; /* slight bounce-back like settling parchment */
+  }
+  100% {
+    max-height: 400px;
+    opacity: 1;
+  }
+}
+
+/* Content inside the paper fades in slightly delayed */
+@keyframes scroll-content-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Bottom roller drops down as scroll unfurls */
+@keyframes roller-drop {
+  0% {
+    transform: translateY(-100%) rotateX(60deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(0) rotateX(0deg);
+  }
+  85% {
+    transform: translateY(-6px) rotateX(-4deg); /* bounce */
+  }
+  100% {
+    transform: translateY(0) rotateX(0deg);
+  }
+}
+
+/* Paper grain texture flicker as it unrolls (subtle) */
+@keyframes paper-texture-settle {
+  0%   { background-position: 0px 0px, 0px 0px, 0px -200px; }
+  100% { background-position: 0px 0px, 0px 0px, 0px 0px; }
+}
+
+/* Decorative edge stitch line that draws itself */
+@keyframes stitch-draw {
+  0% { stroke-dashoffset: 600; }
+  100% { stroke-dashoffset: 0; }
+}
+
+
+/* ===== ANIMATION CLASSES ===== */
+
+.animate-unroll {
+  animation: scroll-unroll 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-unroll .scroll-paper-inner {
+  animation: scroll-content-reveal 0.5s 0.35s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-unroll .scroll-roller-bottom {
+  animation: roller-drop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+
+/* ===== SCROLL COMPONENT STYLES ===== */
+
+.scroll-paper {
+  background-color: #e8d5a3;
+  background-image:
+    /* Burnt edge vignette */
+    linear-gradient(90deg, rgba(120, 80, 30, 0.25) 0%, transparent 6%, transparent 94%, rgba(120, 80, 30, 0.25) 100%),
+    /* Top-bottom age stain */
+    linear-gradient(0deg, rgba(140, 95, 40, 0.3) 0%, transparent 5%, transparent 95%, rgba(140, 95, 40, 0.3) 100%),
+    /* Parchment grain noise (subtle repeating) */
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  box-shadow:
+    inset 0 0 60px rgba(110, 75, 30, 0.5),
+    inset 0 2px 4px rgba(255, 245, 220, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  max-height: 0;
+  position: relative;
+}
+
+/* Crease line across the middle of the paper */
+.scroll-paper::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 5%;
+  right: 5%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(130, 90, 40, 0.2), rgba(130, 90, 40, 0.35), rgba(130, 90, 40, 0.2), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Wax-seal-like corner ornament */
+.scroll-paper::after {
+  content: '◈';
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 14px;
+  color: rgba(160, 110, 40, 0.3);
+  pointer-events: none;
+}
+
+.scroll-roller {
+  background:
+    linear-gradient(to bottom,
+      #6b4226 0%,
+      #4a2f1d 15%,
+      #2a1810 40%,
+      #1a0f08 50%,
+      #2a1810 60%,
+      #4a2f1d 85%,
+      #6b4226 100%
+    );
+  border: 1px solid #1a0f08;
+  box-shadow:
+    0 4px 8px -2px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+/* Wood grain lines on rollers */
+.scroll-roller::before {
+  content: '';
+  position: absolute;
+  inset: 2px 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 8px,
+    rgba(255, 200, 120, 0.07) 8px,
+    rgba(255, 200, 120, 0.07) 9px
+  );
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Gold trim ring on roller ends */
+.scroll-roller-knob {
+  background: linear-gradient(to bottom, #c9a84c, #8b6914, #c9a84c);
+  border: 1px solid #6b4f10;
+  box-shadow:
+    0 0 4px rgba(201, 168, 76, 0.4),
+    inset 0 1px 0 rgba(255, 220, 100, 0.3);
+}
+
+
+/* ================================================================
+   NOTIFICATION SCROLL — Hyper-Realistic Ancient Parchment Panel
+   ================================================================ */
+
+/* The parchment body */
+.notif-scroll-body {
+  position: relative;
+  background-color: #dcc89a;
+  background-image:
+    /* Heavy parchment grain (fractal noise) */
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.1'/%3E%3C/svg%3E"),
+    /* Vertical fibre streaks */
+    repeating-linear-gradient(
+      92deg,
+      transparent,
+      transparent 18px,
+      rgba(130, 90, 40, 0.04) 18px,
+      rgba(130, 90, 40, 0.04) 19px
+    ),
+    /* Horizontal fibre streaks */
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 22px,
+      rgba(130, 90, 40, 0.03) 22px,
+      rgba(130, 90, 40, 0.03) 23px
+    );
+  box-shadow:
+    inset 0 0 80px rgba(100, 65, 20, 0.55),
+    inset 0 3px 6px rgba(255, 240, 200, 0.25),
+    inset 0 -3px 6px rgba(80, 50, 15, 0.3),
+    4px 0 15px rgba(0, 0, 0, 0.4),
+    -2px 0 8px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+/* Torn / ragged right edge — gives the "ripped parchment" look */
+.notif-scroll-body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 12px;
+  height: 100%;
+  z-index: 5;
+  background:
+    linear-gradient(to right, transparent 30%, rgba(10, 10, 10, 0.85));
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0 L4 3 L2 8 L5 14 L3 20 L6 28 L2 35 L5 42 L3 50 L7 58 L4 65 L6 72 L3 80 L5 88 L2 95 L6 103 L4 110 L7 118 L3 125 L5 133 L2 140 L6 148 L4 155 L7 163 L3 170 L5 178 L2 185 L6 193 L4 200 L7 208 L3 215 L5 223 L2 230 L6 238 L4 245 L7 253 L3 260 L5 268 L2 275 L6 283 L4 290 L7 298 L3 305 L5 313 L2 320 L6 328 L4 335 L7 343 L3 350 L5 358 L2 365 L6 373 L4 380 L7 388 L3 395 L5 403 L2 410 L6 418 L4 425 L7 433 L3 440 L5 448 L2 455 L6 463 L4 470 L7 478 L3 485 L5 493 L2 500 L6 508 L4 515 L7 523 L3 530 L5 538 L2 545 L6 553 L4 560 L7 568 L3 575 L5 583 L2 590 L6 598 L4 605 L7 613 L3 620 L5 628 L2 635 L6 643 L4 650 L7 658 L3 665 L5 673 L2 680 L6 688 L4 695 L7 703 L3 710 L5 718 L2 725 L6 733 L4 740 L7 748 L3 755 L5 763 L2 770 L6 778 L4 785 L7 793 L3 800 L12 800 L12 0 Z' fill='white'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0 L4 3 L2 8 L5 14 L3 20 L6 28 L2 35 L5 42 L3 50 L7 58 L4 65 L6 72 L3 80 L5 88 L2 95 L6 103 L4 110 L7 118 L3 125 L5 133 L2 140 L6 148 L4 155 L7 163 L3 170 L5 178 L2 185 L6 193 L4 200 L7 208 L3 215 L5 223 L2 230 L6 238 L4 245 L7 253 L3 260 L5 268 L2 275 L6 283 L4 290 L7 298 L3 305 L5 313 L2 320 L6 328 L4 335 L7 343 L3 350 L5 358 L2 365 L6 373 L4 380 L7 388 L3 395 L5 403 L2 410 L6 418 L4 425 L7 433 L3 440 L5 448 L2 455 L6 463 L4 470 L7 478 L3 485 L5 493 L2 500 L6 508 L4 515 L7 523 L3 530 L5 538 L2 545 L6 553 L4 560 L7 568 L3 575 L5 583 L2 590 L6 598 L4 605 L7 613 L3 620 L5 628 L2 635 L6 643 L4 650 L7 658 L3 665 L5 673 L2 680 L6 688 L4 695 L7 703 L3 710 L5 718 L2 725 L6 733 L4 740 L7 748 L3 755 L5 763 L2 770 L6 778 L4 785 L7 793 L3 800 L12 800 L12 0 Z' fill='white'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* Coffee ring stain overlay */
+.notif-scroll-stain {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  border: 2px solid rgba(120, 75, 20, 0.08);
+  background: radial-gradient(circle, transparent 55%, rgba(120, 75, 20, 0.06) 65%, transparent 75%);
+}
+
+/* Foxing spots (tiny age spots scattered on paper) */
+.notif-scroll-foxing {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(circle, rgba(130, 90, 30, 0.15), transparent 70%);
+}
+
+/* Horizontal crease / fold lines */
+.notif-scroll-crease {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  height: 1px;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(110, 75, 30, 0.15) 15%,
+    rgba(110, 75, 30, 0.3) 50%,
+    rgba(110, 75, 30, 0.15) 85%,
+    transparent
+  );
+}
+
+/* Burnt / singed edge darkening on top and bottom */
+.notif-scroll-burn-top,
+.notif-scroll-burn-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 20px;
+  pointer-events: none;
+  z-index: 3;
+}
+.notif-scroll-burn-top {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(60, 35, 10, 0.4), transparent);
+}
+.notif-scroll-burn-bottom {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(60, 35, 10, 0.35), transparent);
+}
+
+/* Left edge tear/roughness */
+.notif-scroll-left-tear {
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: 8px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    linear-gradient(to left, transparent 30%, rgba(10, 10, 10, 0.5));
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 8 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 0 L5 5 L7 12 L4 18 L6 25 L3 32 L5 40 L4 48 L6 55 L3 63 L5 70 L4 78 L6 85 L3 93 L5 100 L4 108 L6 115 L3 123 L5 130 L4 138 L6 145 L3 153 L5 160 L4 168 L6 175 L3 183 L5 190 L4 198 L6 205 L3 213 L5 220 L4 228 L6 235 L3 243 L5 250 L4 258 L6 265 L3 273 L5 280 L4 288 L6 295 L3 303 L5 310 L4 318 L6 325 L3 333 L5 340 L4 348 L6 355 L3 363 L5 370 L4 378 L6 385 L3 393 L5 400 L4 408 L6 415 L3 423 L5 430 L4 438 L6 445 L3 453 L5 460 L4 468 L6 475 L3 483 L5 490 L4 498 L6 505 L3 513 L5 520 L4 528 L6 535 L3 543 L5 550 L4 558 L6 565 L3 573 L5 580 L4 588 L6 595 L3 603 L5 610 L4 618 L6 625 L3 633 L5 640 L4 648 L6 655 L3 663 L5 670 L4 678 L6 685 L3 693 L5 700 L4 708 L6 715 L3 723 L5 730 L4 738 L6 745 L3 753 L5 760 L4 768 L6 775 L3 783 L5 790 L4 798 L6 800 L0 800 L0 0 Z' fill='white'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 8 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 0 L5 5 L7 12 L4 18 L6 25 L3 32 L5 40 L4 48 L6 55 L3 63 L5 70 L4 78 L6 85 L3 93 L5 100 L4 108 L6 115 L3 123 L5 130 L4 138 L6 145 L3 153 L5 160 L4 168 L6 175 L3 183 L5 190 L4 198 L6 205 L3 213 L5 220 L4 228 L6 235 L3 243 L5 250 L4 258 L6 265 L3 273 L5 280 L4 288 L6 295 L3 303 L5 310 L4 318 L6 325 L3 333 L5 340 L4 348 L6 355 L3 363 L5 370 L4 378 L6 385 L3 393 L5 400 L4 408 L6 415 L3 423 L5 430 L4 438 L6 445 L3 453 L5 460 L4 468 L6 475 L3 483 L5 490 L4 498 L6 505 L3 513 L5 520 L4 528 L6 535 L3 543 L5 550 L4 558 L6 565 L3 573 L5 580 L4 588 L6 595 L3 603 L5 610 L4 618 L6 625 L3 633 L5 640 L4 648 L6 655 L3 663 L5 670 L4 678 L6 685 L3 693 L5 700 L4 708 L6 715 L3 723 L5 730 L4 738 L6 745 L3 753 L5 760 L4 768 L6 775 L3 783 L5 790 L4 798 L6 800 L0 800 L0 0 Z' fill='white'/%3E%3C/svg%3E");
+}
+
+/* Wax seal styling */
+.notif-wax-seal {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%,
+    #c0392b 0%,
+    #96281b 40%,
+    #6b1a11 80%,
+    #4a100a 100%
+  );
+  box-shadow:
+    inset 0 2px 4px rgba(255, 150, 120, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.5),
+    0 0 0 2px rgba(150, 40, 27, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.notif-wax-seal::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 180, 150, 0.15);
+}
+
+/* Notification roller for the mini scroll */
+.notif-roller {
+  background:
+    linear-gradient(to bottom,
+      #7a5230 0%,
+      #5a3a20 15%,
+      #3a2010 40%,
+      #2a1508 50%,
+      #3a2010 60%,
+      #5a3a20 85%,
+      #7a5230 100%
+    );
+  border: 1px solid #2a1508;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+
+/* Roller end caps */
+.notif-roller-cap {
+  background: linear-gradient(to bottom, #b8942e, #7a6018, #b8942e);
+  border: 1px solid #5a4510;
+  box-shadow:
+    0 0 3px rgba(184, 148, 46, 0.3),
+    inset 0 1px 0 rgba(255, 220, 100, 0.25);
+}
+
+/* Notification item entrance */
+@keyframes notif-ink-appear {
+  0% { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.notif-item {
+  animation: notif-ink-appear 0.4s ease-out forwards;
+  position: relative;
+}
+
+/* Ink drip dot decoration */
+.notif-ink-drip {
+  width: 4px;
+  height: 4px;
+  border-radius: 50% 50% 50% 20%;
+  background: rgba(40, 20, 5, 0.6);
+  transform: rotate(30deg);
+}
