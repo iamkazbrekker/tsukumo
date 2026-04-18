@@ -242,10 +242,10 @@ function Page() {
   // Configuration for the center-bottom prediction overlay
   const predictionOverlayConfig = {
     src: "/prediction-overlay.png",
-    width: "1200px",  // Adjustable width
+    width: "450px",  // Adjustable width
     height: "auto",
     bottom: "2.8%",    // Adjustable bottom spacing
-    left: "42.1%",     // Middle of the screen horizontally
+    left: "83.8%",     // Middle of the screen horizontally
     transform: "translateX(-50%)", // Centers it exactly at 50% left relative to its own width
     zIndex: 40,
   };
