@@ -99,52 +99,14 @@ export async function GET() {
          throw new Error("Python fallback");
       }
     } catch (e) {
-      console.warn("Python service offline mapping to localhost...");
-      
-      // Attempt 127.0.0.1 as a secondary fallback if localhost fails
-      try {
-        const mlFallback = await fetch('http://127.0.0.1:5000/predict', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(parsedData),
-        });
-        if (mlFallback.ok) {
-            agentResults = await mlFallback.json();
-        } else {
-            throw new Error();
-        }
-      } catch {
-        console.warn("ML Service entirely unreachable. Using safe heuristic logic.");
-        
-        let prepped_booking = null;
-        let internal_monologue = ["ML Service Offline. Monitoring vitals via safe heuristic baseline."];
-        const pData = parsedData as any;
-
-        // Strictly only trigger if SPO2 is actually critical
-        if (pData.spo2 && pData.spo2 < 90) {
-            internal_monologue.push(`CRITICAL: SpO2 level detected at ${pData.spo2}%.`);
-            prepped_booking = {
-            specialty: "Lung",
-            urgency: "High",
-            reason: `Hypoxia detected (SpO2: ${pData.spo2}%). Immediate attention recommended.`,
-            recommended_window: "ASAP (Within 2 hours)"
-            };
-        } else {
-            internal_monologue.push("Continuous monitoring: Vitals currently appear within safe range.");
-        }
-
-        agentResults = {
-            status: "success",
-            prepped_booking,
-            internal_monologue,
-            predictions: {
-            cardiac_arrest_risk: 0,
-            diabetes_risk: 0,
-            burnout_risk: 0,
-            respiratory_risk: 0
-            }
-        };
-      }
+      console.warn("Python service offline, failing back to internal logic...");
+      predictionResults = {
+        cardiac_arrest_risk: parsedData.heartRate > 120 ? 1 : 0,
+        diabetes_risk: 0,
+        burnout_risk: parsedData.activity > 0.8 ? 1 : 0,
+        respiratory_risk: parsedData.resp_rate > 25 ? 1 : 0,
+        kidney_stones_risk: 0
+      };
     }
 
     const mockFileTimestampStream = `data_stream_seq_${parsedData.heartRate}.json`;
