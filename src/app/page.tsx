@@ -156,7 +156,7 @@ function Page() {
     src: "/human-overlay.png",
     width: "450px",
     height: "auto",
-    top: "48%",
+    top: "51%",
     left: "50%",
     transform: "translate(-50%, -50%)",
     zIndex: 50,
@@ -183,7 +183,7 @@ function Page() {
   // Configuration for the center-bottom prediction overlay
   const predictionOverlayConfig = {
     src: "/prediction-overlay.png",
-    width: "325px",  // Adjustable width
+    width: "375px",  // Adjustable width
     height: "auto",
     bottom: "2.7%",    // Adjustable bottom spacing
     left: "59.7%",     // Middle of the screen horizontally
