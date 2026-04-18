@@ -20,13 +20,15 @@ def load_model(path):
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARDIAC_MODEL_PATH = os.path.join(BASE_DIR, 'public', 'cardiac-arrest.pkl')
 DIABETES_MODEL_PATH = os.path.join(BASE_DIR, 'public', 'diabetes.pkl')
+BURNOUT_MODEL_PATH = os.path.join(BASE_DIR, 'public', 'burnout_risk_model.pkl')
 
 cardiac_model = load_model(CARDIAC_MODEL_PATH)
 diabetes_model = load_model(DIABETES_MODEL_PATH)
+burnout_model = load_model(BURNOUT_MODEL_PATH)
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({"status": "healthy", "cardiac_loaded": cardiac_model is not None, "diabetes_loaded": diabetes_model is not None})
+    return jsonify({"status": "healthy", "cardiac_loaded": cardiac_model is not None, "diabetes_loaded": diabetes_model is not None, "burnout_loaded": burnout_model is not None})
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -48,6 +50,10 @@ def predict():
         if diabetes_model:
             diabetes_pred = diabetes_model.predict(df)[0]
             results['diabetes_risk'] = int(diabetes_pred)
+            
+        if burnout_model:
+            burnout_pred = burnout_model.predict(df)[0]
+            results['burnout_risk'] = int(burnout_pred)
             
     except Exception as e:
         return jsonify({"error": str(e)}), 500
