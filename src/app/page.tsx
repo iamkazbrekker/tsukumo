@@ -325,44 +325,22 @@ function Page() {
     <main className="relative min-h-screen w-full">
       <ThangkaFilters />
 
-      {/* Hand-Coded Thangka Health Twin Logo (Top Left) */}
-      <div className="fixed top-8 left-8 z-[150] flex items-center gap-4 pointer-events-none group">
-        <svg width="60" height="60" viewBox="0 0 100 100" fill="none" className="drop-shadow-[0_0_15px_rgba(255,215,0,0.3)]">
-          <defs>
-            <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#FFD700" /><stop offset="50%" stopColor="#B8860B" /><stop offset="100%" stopColor="#FFD700" />
-            </linearGradient>
-            <linearGradient id="lapis-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#1E3A8A" /><stop offset="100%" stopColor="#1e40af" />
-            </linearGradient>
-          </defs>
-          <circle cx="50" cy="50" r="45" stroke="url(#gold-grad)" strokeWidth="1.5" strokeDasharray="2 1" />
-          <circle cx="50" cy="50" r="40" stroke="url(#gold-grad)" strokeWidth="3" />
-          {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-            <path key={angle} d="M50 15V10" stroke="url(#gold-grad)" strokeWidth="4" strokeLinecap="round" transform={`rotate(${angle} 50 50)`} />
-          ))}
-          <g transform="translate(35, 30) scale(0.6)">
-            <path d="M10 10C10 30 40 30 40 50C40 70 10 70 10 90" stroke="#FFT700" strokeWidth="4" strokeLinecap="round" opacity="0.8" />
-            <path d="M40 10C40 30 10 30 10 50C10 70 40 70 40 90" stroke="#1E40AF" strokeWidth="4" strokeLinecap="round" />
-            {[15, 25, 35, 45, 55, 65, 75, 85].map((y) => (
-              <line key={y} x1={10 + (y < 50 ? (y - 10) / 2 : (90 - y) / 2)} y1={y} x2={40 - (y < 50 ? (y - 10) / 2 : (90 - y) / 2)} y2={y} stroke="url(#gold-grad)" strokeWidth="1" opacity="0.5" />
-            ))}
-          </g>
-          <circle cx="50" cy="50" r="22" stroke="url(#gold-grad)" strokeWidth="0.5" fill="rgba(30, 58, 138, 0.1)" />
-        </svg>
-
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black tracking-[0.2em] uppercase leading-none" style={{ background: 'linear-gradient(to right, #FFD700, #B8860B, #FFD700)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 5px rgba(255, 215, 0, 0.2))' }}>Tsukumo</h1>
-          </div>
-          <div className="flex items-center gap-1.5 mt-1">
-            <div className="w-1.5 h-[1.5px] bg-red-600 animate-pulse" /><span className="text-[9px] font-bold text-blue-400 uppercase tracking-[0.4em] opacity-80">Co-Health Twin</span>
-          </div>
+      {/* Updated Thangka Health Twin Logo (Top Left) */}
+      <div className="fixed top-6 left-8 z-[150] flex flex-col items-start gap-0.5 pointer-events-none group transition-all duration-500">
+        <img 
+          src="/assets/thangka/logo.png" 
+          alt="Tsukumo Logo" 
+          className="h-10 w-auto drop-shadow-[0_0_20px_rgba(255,215,0,0.4)] brightness-110 contrast-110"
+        />
+        <div className="flex items-center gap-1.5 ml-2 mt-[-4px]">
+          <div className="w-1.5 h-[1.5px] bg-red-600 animate-pulse shadow-[0_0_8px_rgba(220,38,38,0.8)]" />
+          <span className="text-[9px] font-bold text-blue-400 uppercase tracking-[0.4em] opacity-80 drop-shadow-sm">Co-Health Twin</span>
         </div>
       </div>
 
+
       {/* ======== NOTIFICATION SCROLL — Left Side ======== */}
-      <div className="fixed left-6 top-1/2 -translate-y-1/2 z-[120] w-[260px] flex flex-col items-center" style={{ perspective: '800px' }}>
+      <div className="fixed right-40 top-1/2 -translate-y-1/2 z-[120] w-[260px] flex flex-col items-center" style={{ perspective: '800px' }}>
 
         {/* Top Roller */}
         <div className="h-5 w-[108%] notif-roller rounded-full z-30 relative flex items-center justify-between">
