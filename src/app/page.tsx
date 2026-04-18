@@ -340,7 +340,7 @@ function Page() {
 
 
       {/* ======== NOTIFICATION SCROLL — Left Side ======== */}
-      <div className="fixed right-40 top-1/2 -translate-y-1/2 z-[120] w-[260px] flex flex-col items-center" style={{ perspective: '800px' }}>
+      <div className="fixed left-6 top-1/2 -translate-y-1/2 z-[120] w-[260px] flex flex-col items-center" style={{ perspective: '800px' }}>
 
         {/* Top Roller */}
         <div className="h-5 w-[108%] notif-roller rounded-full z-30 relative flex items-center justify-between">
