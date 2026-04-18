@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // --- THEME DATA: Define the look and feel for each organ ---
 const organThemes: Record<string, any> = {
@@ -142,6 +142,61 @@ function Page() {
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const [lastHovered, setLastHovered] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const lastSourceFileRef = React.useRef<string | null>(null);
+  const [liveNotifications, setLiveNotifications] = useState<any[]>([
+    { icon: '🔥', title: 'Cardiac Rhythm Shift', desc: 'Heart rate variance detected at 04:38 AM. Minor fluctuation.', time: '2h ago', severity: 'warn' },
+    { icon: '💧', title: 'Hydration Reminder', desc: 'Renal filtration suggests low fluid intake today.', time: '3h ago', severity: 'info' },
+    { icon: '🌬️', title: 'Breath Pattern Normal', desc: 'Respiratory cycle aligned with optimal prana flow.', time: '5h ago', severity: 'ok' },
+    { icon: '⚡', title: 'Neural Coherence Peak', desc: 'Alpha wave synchrony reached meditative state at dawn.', time: '6h ago', severity: 'ok' },
+    { icon: '🌡️', title: 'Agni Metabolic Check', desc: 'Digestive fire steady. Post-meal thermogenesis within range.', time: '8h ago', severity: 'info' },
+    { icon: '👁️', title: 'Ocular Strain Alert', desc: 'Extended screen exposure. Blink rate below baseline.', time: '10h ago', severity: 'warn' }
+  ]);
+
+  useEffect(() => {
+    const fetchDriveStream = async () => {
+      try {
+        const res = await fetch('/api/drive-monitor');
+        const data = await res.json();
+        
+        if (data && data.predictions && !data.predictions.error) {
+          if (data.source_file === lastSourceFileRef.current) return; // Don't duplicate if file hasn't changed
+          lastSourceFileRef.current = data.source_file;
+
+          const preds = data.predictions;
+          const newNotifs: any[] = [];
+          
+          if (preds.cardiac_arrest_risk !== undefined) {
+             newNotifs.push({
+               icon: preds.cardiac_arrest_risk > 0 ? '⚠️' : '🔥',
+               title: 'Drive: Cardiac Model',
+               desc: preds.cardiac_arrest_risk > 0 ? 'Elevated cardiac risk detected from synced drive stream.' : 'Cardiac rhythms normal in drive stream.',
+               time: 'just now',
+               severity: preds.cardiac_arrest_risk > 0 ? 'warn' : 'ok'
+             });
+          }
+          if (preds.diabetes_risk !== undefined) {
+             newNotifs.push({
+               icon: preds.diabetes_risk > 0 ? '⚠️' : '💧',
+               title: 'Drive: Diabetes Model',
+               desc: preds.diabetes_risk > 0 ? 'Elevated diabetes risk detected.' : 'Metabolic markers stable in drive stream.',
+               time: 'just now',
+               severity: preds.diabetes_risk > 0 ? 'warn' : 'ok'
+             });
+          }
+          
+          if (newNotifs.length > 0) {
+             setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 6));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch drive stream", e);
+      }
+    };
+
+    const intervalId = setInterval(fetchDriveStream, 10000);
+    fetchDriveStream();
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleMouseEnter = (id: string) => {
     setHoveredRegion(id);
@@ -383,14 +438,7 @@ function Page() {
             </div>
 
             {/* Notification Items */}
-            {[
-              { icon: '🔥', title: 'Cardiac Rhythm Shift', desc: 'Heart rate variance detected at 04:38 AM. Minor fluctuation.', time: '2h ago', severity: 'warn' },
-              { icon: '💧', title: 'Hydration Reminder', desc: 'Renal filtration suggests low fluid intake today.', time: '3h ago', severity: 'info' },
-              { icon: '🌬️', title: 'Breath Pattern Normal', desc: 'Respiratory cycle aligned with optimal prana flow.', time: '5h ago', severity: 'ok' },
-              { icon: '⚡', title: 'Neural Coherence Peak', desc: 'Alpha wave synchrony reached meditative state at dawn.', time: '6h ago', severity: 'ok' },
-              { icon: '🌡️', title: 'Agni Metabolic Check', desc: 'Digestive fire steady. Post-meal thermogenesis within range.', time: '8h ago', severity: 'info' },
-              { icon: '👁️', title: 'Ocular Strain Alert', desc: 'Extended screen exposure. Blink rate below baseline.', time: '10h ago', severity: 'warn' },
-            ].map((notif, idx) => (
+            {liveNotifications.map((notif, idx) => (
               <div key={idx} className="notif-item mb-3 last:mb-0" style={{ animationDelay: `${idx * 0.08}s` }}>
                 <div className="flex gap-2.5 group">
                   {/* Ink drip decoration */}
