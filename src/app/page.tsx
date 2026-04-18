@@ -403,11 +403,11 @@ function Page() {
         <img 
           src="/assets/thangka/logo.png" 
           alt="Tsukumo Logo" 
-          className="h-10 w-auto drop-shadow-[0_0_20px_rgba(255,215,0,0.4)] brightness-110 contrast-110"
+          className="h-10 w-auto drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] brightness-110 contrast-110"
         />
         <div className="flex items-center gap-1.5 ml-2 mt-[-4px]">
           <div className="w-1.5 h-[1.5px] bg-red-600 animate-pulse shadow-[0_0_8px_rgba(220,38,38,0.8)]" />
-          <span className="text-[9px] font-bold text-blue-400 uppercase tracking-[0.4em] opacity-80 drop-shadow-sm">Co-Health Twin</span>
+          <span className="text-[10px] font-bold text-blue-900 uppercase tracking-[0.4em] opacity-80 drop-shadow-sm">Co-Health Twin</span>
         </div>
       </div>
 
