@@ -1,65 +1,90 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 
-// This simulates the actual absolute path to your Drive sync folder
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+// Paths for synthetic data streaming
+const PUBLIC_DATA_DIR = path.join(process.cwd(), 'public', 'synthetic_iot_data');
+const STREAMING_FILE = path.join(PUBLIC_DATA_DIR, 'streaming_1year.csv');
+const POINTER_FILE = path.join(process.cwd(), 'drive_incoming', 'stream_index.json');
 const DRIVE_FOLDER_PATH = path.join(process.cwd(), 'drive_incoming');
+
+async function getNextStreamRow() {
+  try {
+    if (!existsSync(STREAMING_FILE)) return null;
+
+    // 1. Get current index
+    let index = 0;
+    try {
+      if (existsSync(POINTER_FILE)) {
+        const pointerData = await fs.readFile(POINTER_FILE, 'utf-8');
+        index = JSON.parse(pointerData).index;
+      }
+    } catch (e) { index = 0; }
+
+    // 2. Read the specific row from CSV (streaming for performance)
+    // For simplicity in this demo, we read the file and slice, 
+    // but for 150MB we should ideally use a stream. 
+    // However, the 1-year file is ~25MB (1/6th of 150MB).
+    const content = await fs.readFile(STREAMING_FILE, 'utf-8');
+    const lines = content.split('\n');
+    const header = lines[0].split(',');
+
+    // Cycle back to 0 if we hit the end
+    const nextIndex = (index + 1) % (lines.length - 1);
+    if (nextIndex === 0) index = 1; else index = nextIndex;
+
+    const row = lines[index].split(',');
+    const data: any = {};
+    header.forEach((h, i) => {
+      data[h.trim()] = isNaN(Number(row[i])) ? row[i] : Number(row[i]);
+    });
+
+    // Save next index
+    await fs.writeFile(POINTER_FILE, JSON.stringify({ index: index + 1 }));
+
+    return data;
+  } catch (e) {
+    console.error("Stream reader error:", e);
+    return null;
+  }
+}
 
 export async function GET() {
   try {
-    // 1. Check if the folder exists, if not, create it for mocking purposes
-    try {
-      await fs.access(DRIVE_FOLDER_PATH);
-    } catch {
+    if (!existsSync(DRIVE_FOLDER_PATH)) {
       await fs.mkdir(DRIVE_FOLDER_PATH, { recursive: true });
-      // Create a mock file so there is something to read
-      await fs.writeFile(
-        path.join(DRIVE_FOLDER_PATH, 'patient_001.json'),
-        JSON.stringify({
-          heart_rate: 85,
-          blood_pressure_systolic: 140,
-          blood_pressure_diastolic: 90,
-          glucose_level: 160,
-          age: 45,
-          bmi: 28.5
-        })
-      );
     }
 
-    // 2. Read the latest file from the drive folder
-    const files = await fs.readdir(DRIVE_FOLDER_PATH);
-    const dataFiles = files.filter(f => f.endsWith('.json') || f.endsWith('.csv'));
-    
-    if (dataFiles.length === 0) {
-      return NextResponse.json({ status: "waiting", message: "No data incoming from drive folder yet." });
-    }
+    // 1. Try to get the latest row from our synthetic stream
+    const steamData = await getNextStreamRow();
 
-    // Sort by most recently modified to simulate "incoming stream"
-    const fileStats = await Promise.all(
-      dataFiles.map(async file => ({
-        file,
-        stat: await fs.stat(path.join(DRIVE_FOLDER_PATH, file))
-      }))
-    );
-    fileStats.sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
-    const latestFile = fileStats[0].file;
+    // 2. Translate IoT Vitals to ML Features
+    // We mix real IoT stream with reasonable baseline metadata
+    const parsedData = {
+      age: 42,
+      sysBP: 128 + (Math.random() * 10 - 5), // fluctuating baseline
+      diaBP: 82,
+      heartRate: steamData?.heart_rate || 72,
+      totChol: 210,
+      HDLChol: 48,
+      glucose: 98,
+      bmi: 26.4,
+      currentSmoker: 0,
+      resp_rate: steamData?.resp_rate || 14,
+      spo2: steamData?.spo2 || 98,
+      activity: steamData?.activity_level || 0.1,
+      // Map specialized model fields
+      notes: `IoT Sync: HR=${steamData?.heart_rate}, RR=${steamData?.resp_rate}, Activity=${steamData?.activity_level}`,
+      diagnosis: steamData?.heart_rate > 100 ? "Tachycardia observed in stream" : "Normal Sinus Rhythm"
+    };
 
-    // 3. Read and parse the data
-    const rawData = await fs.readFile(path.join(DRIVE_FOLDER_PATH, latestFile), 'utf-8');
-    let parsedData: any = {};
-    if (latestFile.endsWith('.json')) {
-      parsedData = JSON.parse(rawData);
-    } else {
-      // Basic mock CSV parsing if needed
-      const lines = rawData.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
-      const values = lines[1].split(',').map(v => v.trim());
-      headers.forEach((h, i) => { parsedData[h] = isNaN(Number(values[i])) ? values[i] : Number(values[i]); });
-    }
-
-    // 4. Send this data to the Python Microservice for prediction
+    // 3. Send this data to the Python Microservice for prediction
     let agentResults: any = { error: "FastAPI Agent service not reachable." };
-    
+
     try {
       const mlResponse = await fetch('http://127.0.0.1:8000/vitals', {
         method: 'POST',
@@ -77,7 +102,7 @@ export async function GET() {
           bmi: parsedData.bmi || 22,
         }),
       });
-      
+
       if (mlResponse.ok) {
         agentResults = await mlResponse.json();
       } else {
@@ -118,17 +143,22 @@ export async function GET() {
       agentResults = {
         status: "success",
         prepped_booking,
-        internal_monologue
+        internal_monologue,
+        predictions: {
+          cardiac_arrest_risk: parsedData.heartRate > 120 ? 1 : 0,
+          diabetes_risk: 0,
+          burnout_risk: parsedData.activity > 0.8 ? 1 : 0,
+          respiratory_risk: parsedData.resp_rate > 25 ? 1 : 0
+        }
       };
     }
 
-    // By using the actual filename and modification time, the React UI will only treat it 
-    // as "new" when the file on disk actually changes, preventing redundant auto-pops.
-    const mockFileTimestampStream = `${latestFile}_${fileStats[0].stat.mtimeMs}`;
+    const mockFileTimestampStream = `data_stream_seq_${parsedData.heartRate}.json`;
 
     return NextResponse.json({
       source_file: mockFileTimestampStream,
       patient_data: parsedData,
+      predictions: agentResults.predictions || agentResults,
       prepped_booking: agentResults.prepped_booking,
       internal_monologue: agentResults.internal_monologue,
       composite_risk: agentResults.composite_risk || 0,
