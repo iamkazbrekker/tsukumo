@@ -1,1 +1,11 @@
-{"heart_rate":85,"blood_pressure_systolic":140,"blood_pressure_diastolic":90,"glucose_level":160,"age":45,"bmi":28.5}
+{
+  "heart_rate": 140,
+  "blood_pressure_systolic": 145,
+  "blood_pressure_diastolic": 95,
+  "glucose_level": 160,
+  "age": 45,
+  "bmi": 28.5,
+  "spo2": 85,
+  "sleep_hours": 5.2,
+  "stress_level": 0.85
+}
