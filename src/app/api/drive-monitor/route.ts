@@ -64,7 +64,7 @@ export async function GET() {
 
     // 2. Translate IoT Vitals to ML Features
     // We mix real IoT stream with reasonable baseline metadata
-    const parsedData = {
+    const parsedData: any = {
       age: 42,
       sysBP: 128 + (Math.random() * 10 - 5), // fluctuating baseline
       diaBP: 82,
