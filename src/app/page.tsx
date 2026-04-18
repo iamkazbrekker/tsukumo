@@ -138,12 +138,34 @@ const organThemes: Record<string, any> = {
   }
 };
 
+// ── What-If types ─────────────────────────────────────────────────────────
+type ScenarioResult = {
+  scenario:    string;
+  description: string;
+  risk_type:   'cardiac' | 'diabetes';
+  mean_risk:   number;
+  p05: number; p95: number;
+  color:       string;
+};
+
+type WhatIfData = {
+  scenarios:   ScenarioResult[];
+  trajectory:  Record<string, any>[];
+  feature_sensitivity: { cardiac: Record<string,number>; diabetes: Record<string,number> };
+  summary:     string;
+  _mock?:      boolean;
+};
+
 function Page() {
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const [lastHovered, setLastHovered] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [showInsightsModal, setShowInsightsModal] = useState(false);
+  const [insightsTab, setInsightsTab] = useState<'diagnostics' | 'whatif'>('diagnostics');
   const [latestInsights, setLatestInsights] = useState<any>(null);
+  const [whatIfData, setWhatIfData] = useState<WhatIfData | null>(null);
+  const [whatIfLoading, setWhatIfLoading] = useState(false);
+  const [whatIfRiskType, setWhatIfRiskType] = useState<'cardiac' | 'diabetes'>('cardiac');
   const lastSourceFileRef = React.useRef<string | null>(null);
   const [liveNotifications, setLiveNotifications] = useState<any[]>([
     { icon: '🔥', title: 'Cardiac Rhythm Shift', desc: 'Heart rate variance detected at 04:38 AM. Minor fluctuation.', time: '2h ago', severity: 'warn' },
@@ -201,6 +223,37 @@ function Page() {
     fetchDriveStream();
     return () => clearInterval(intervalId);
   }, []);
+
+  // ── What-If fetch ──────────────────────────────────────────────────────────
+  const fetchWhatIf = React.useCallback(async (patientOverride?: Record<string, number>) => {
+    setWhatIfLoading(true);
+    try {
+      const defaultPatient = {
+        age: 45, bmi: 28.5, sysBP: 140, diaBP: 90, heartRate: 85,
+        totChol: 215, HDLChol: 45, glucose: 160,
+        cigarettes_per_day: 0, sleep_hours: 6, physical_activity_met: 1.5,
+        sodium_mg_per_day: 3800, alcohol_drinks_per_week: 4,
+        prevalentHyp: 1, diabetes: 0, currentSmoker: 0,
+      };
+      const res = await fetch('/api/whatif', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ patient: { ...defaultPatient, ...patientOverride }, n: 3000, weeks: 24 }),
+      });
+      if (res.ok) setWhatIfData(await res.json());
+    } catch (e) {
+      console.error('What-If fetch failed', e);
+    } finally {
+      setWhatIfLoading(false);
+    }
+  }, []);
+
+  // Pre-fetch when the modal first opens on the what-if tab
+  React.useEffect(() => {
+    if (showInsightsModal && insightsTab === 'whatif' && !whatIfData && !whatIfLoading) {
+      fetchWhatIf();
+    }
+  }, [showInsightsModal, insightsTab, whatIfData, whatIfLoading, fetchWhatIf]);
 
   const handleMouseEnter = (id: string) => {
     setHoveredRegion(id);
@@ -733,88 +786,350 @@ function Page() {
       {/* ML Insights Modal */}
       {showInsightsModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity animate-fade-in" onClick={() => setShowInsightsModal(false)}>
-          <div className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-700 rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.2)]" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-red-500 opacity-80" />
-            
-            <div className="p-8">
-              <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-4">
-                <h2 className="text-3xl font-bold tracking-tight text-white flex items-center gap-4">
+          <div className="relative w-full max-w-3xl bg-zinc-900 border border-zinc-700 rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.2)]" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-violet-500 to-red-500 opacity-80" />
+
+            {/* ── Modal Header ── */}
+            <div className="px-8 pt-6 pb-0">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">
-                     <span className="text-blue-400 text-xl block">❖</span>
+                    <span className="text-blue-400 text-xl block">❖</span>
                   </div>
-                  System Diagnostics
-                </h2>
-                <button onClick={() => setShowInsightsModal(false)} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+                  <h2 className="text-2xl font-bold tracking-tight text-white">Tsukumo Intelligence Hub</h2>
+                </div>
+                <button id="close-insights-modal" onClick={() => setShowInsightsModal(false)} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {/* Cardiac Card */}
-                 <div className="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50 relative overflow-hidden group">
-                    <div className="absolute -right-10 -top-10 w-32 h-32 bg-red-500/5 rounded-full blur-2xl group-hover:bg-red-500/10 transition-colors" />
-                    <div className="flex items-center gap-3 mb-6 relative z-10">
-                       <span className="text-3xl drop-shadow-md">🫀</span>
-                       <h3 className="text-lg font-bold text-zinc-200">Cardiac Arrest Model</h3>
-                    </div>
-                    <div className="space-y-5 relative z-10">
-                       <div>
-                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Algorithm Alert Status</div>
-                          {latestInsights?.cardiac_arrest_risk === 1 ? (
-                             <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 py-2 px-4 rounded-lg w-max">
-                                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
-                                <span className="text-red-500 font-black text-lg tracking-wider">ELEVATED (1)</span>
-                             </div>
-                          ) : (
-                             <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 py-2 px-4 rounded-lg w-max">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                                <span className="text-emerald-500 font-bold text-lg tracking-wider">NORMAL (0)</span>
-                             </div>
-                          )}
-                       </div>
-                       <p className="text-xs text-zinc-400 font-medium leading-relaxed">
-                          Evaluating ECG variance thresholds & hemodynamic stability vectors via continuous <i>Scikit-Learn</i> streaming interface.
-                       </p>
-                    </div>
-                 </div>
-
-                 {/* Diabetes Card */}
-                 <div className="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50 relative overflow-hidden group">
-                    <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors" />
-                    <div className="flex items-center gap-3 mb-6 relative z-10">
-                       <span className="text-3xl drop-shadow-md">🩸</span>
-                       <h3 className="text-lg font-bold text-zinc-200">Diabetes Predictor</h3>
-                    </div>
-                    <div className="space-y-5 relative z-10">
-                       <div>
-                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Algorithm Alert Status</div>
-                          {latestInsights?.diabetes_risk === 1 ? (
-                             <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 py-2 px-4 rounded-lg w-max">
-                                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
-                                <span className="text-red-500 font-black text-lg tracking-wider">ELEVATED (1)</span>
-                             </div>
-                          ) : (
-                             <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 py-2 px-4 rounded-lg w-max">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                                <span className="text-emerald-500 font-bold text-lg tracking-wider">LOW RISK (0)</span>
-                             </div>
-                          )}
-                       </div>
-                       <p className="text-xs text-zinc-400 font-medium leading-relaxed">
-                          Applying nonlinear <i>XGBoost</i> decision trees over fasting glucose histories alongside synchronized drive repository states.
-                       </p>
-                    </div>
-                 </div>
-              </div>
-
-              <div className="mt-8 pt-5 border-t border-zinc-800/80 flex justify-between items-center bg-zinc-900/50">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Repository Status: Sync Active</span>
-                <span className="flex items-center gap-2 text-[10px] font-black uppercase text-blue-400 tracking-wider">
-                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse outline outline-2 outline-blue-500/30" /> 
-                   Connection Established
-                </span>
+              {/* ── Tab Switcher ── */}
+              <div className="flex gap-1 mt-5 bg-zinc-800/60 rounded-xl p-1 w-max">
+                <button
+                  id="tab-diagnostics"
+                  onClick={() => setInsightsTab('diagnostics')}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                    insightsTab === 'diagnostics'
+                      ? 'bg-blue-600 text-white shadow-[0_0_12px_rgba(59,130,246,0.4)]'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >🔬 Diagnostics</button>
+                <button
+                  id="tab-whatif"
+                  onClick={() => { setInsightsTab('whatif'); if (!whatIfData && !whatIfLoading) fetchWhatIf(); }}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                    insightsTab === 'whatif'
+                      ? 'bg-violet-600 text-white shadow-[0_0_12px_rgba(139,92,246,0.4)]'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >🎲 What-If Simulator</button>
               </div>
             </div>
+
+            {/* ── Tab Content ── */}
+            <div className="p-8 pt-5 max-h-[75vh] overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+
+              {/* ════════ DIAGNOSTICS TAB ════════ */}
+              {insightsTab === 'diagnostics' && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-3">
+                    {/* Cardiac Card */}
+                    <div className="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50 relative overflow-hidden group">
+                      <div className="absolute -right-10 -top-10 w-32 h-32 bg-red-500/5 rounded-full blur-2xl group-hover:bg-red-500/10 transition-colors" />
+                      <div className="flex items-center gap-3 mb-6 relative z-10">
+                        <span className="text-3xl drop-shadow-md">🫀</span>
+                        <h3 className="text-lg font-bold text-zinc-200">Cardiac Arrest Model</h3>
+                      </div>
+                      <div className="space-y-5 relative z-10">
+                        <div>
+                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Algorithm Alert Status</div>
+                          {latestInsights?.cardiac_arrest_risk === 1 ? (
+                            <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 py-2 px-4 rounded-lg w-max">
+                              <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
+                              <span className="text-red-500 font-black text-lg tracking-wider">ELEVATED (1)</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 py-2 px-4 rounded-lg w-max">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                              <span className="text-emerald-500 font-bold text-lg tracking-wider">NORMAL (0)</span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-400 font-medium leading-relaxed">
+                          Evaluating ECG variance thresholds &amp; hemodynamic stability vectors via continuous <i>Scikit-Learn</i> streaming interface.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Diabetes Card */}
+                    <div className="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50 relative overflow-hidden group">
+                      <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors" />
+                      <div className="flex items-center gap-3 mb-6 relative z-10">
+                        <span className="text-3xl drop-shadow-md">🩸</span>
+                        <h3 className="text-lg font-bold text-zinc-200">Diabetes Predictor</h3>
+                      </div>
+                      <div className="space-y-5 relative z-10">
+                        <div>
+                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Algorithm Alert Status</div>
+                          {latestInsights?.diabetes_risk === 1 ? (
+                            <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 py-2 px-4 rounded-lg w-max">
+                              <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
+                              <span className="text-red-500 font-black text-lg tracking-wider">ELEVATED (1)</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 py-2 px-4 rounded-lg w-max">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                              <span className="text-emerald-500 font-bold text-lg tracking-wider">LOW RISK (0)</span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-400 font-medium leading-relaxed">
+                          Applying nonlinear <i>XGBoost</i> decision trees over fasting glucose histories alongside synchronized drive repository states.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-5 border-t border-zinc-800/80 flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Repository Status: Sync Active</span>
+                    <span className="flex items-center gap-2 text-[10px] font-black uppercase text-blue-400 tracking-wider">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse outline outline-2 outline-blue-500/30" />
+                      Connection Established
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* ════════ WHAT-IF TAB ════════ */}
+              {insightsTab === 'whatif' && (
+                <div className="mt-3">
+
+                  {/* Loading state */}
+                  {whatIfLoading && (
+                    <div className="flex flex-col items-center justify-center py-16 gap-4">
+                      <div className="w-12 h-12 rounded-full border-2 border-violet-500/30 border-t-violet-500 animate-spin" />
+                      <p className="text-zinc-400 text-sm">Running Monte Carlo Simulation…</p>
+                      <p className="text-zinc-600 text-xs">Synthesising 3,000 virtual patients from NHANES priors</p>
+                    </div>
+                  )}
+
+                  {!whatIfLoading && !whatIfData && (
+                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                      <span className="text-5xl">🎲</span>
+                      <button id="whatif-run-btn" onClick={() => fetchWhatIf()} className="px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)]">
+                        Run What-If Simulation
+                      </button>
+                      <p className="text-zinc-500 text-xs text-center max-w-xs">
+                        Monte Carlo engine (N=3,000) with Framingham/NHANES statistical priors
+                      </p>
+                    </div>
+                  )}
+
+                  {!whatIfLoading && whatIfData && (() => {
+                    const filtered = whatIfData.scenarios.filter(s => s.risk_type === whatIfRiskType);
+                    const baseline = filtered.find(s => s.scenario === 'Current Trajectory');
+                    const baseRisk = baseline?.mean_risk ?? 0;
+                    const MAX_BAR  = Math.max(...filtered.map(s => s.p95), 0.01);
+
+                    // Trajectory lines (first 4 scenarios)
+                    const trajScenarios = ['Current Trajectory', 'Run 3× / Week', 'Full Lifestyle Optimisation', 'No Sodium Reduction'];
+                    const TRAJ_COLORS: Record<string,string> = {
+                      'Current Trajectory':          '#7b7bff',
+                      'Run 3× / Week':               '#2ecc71',
+                      'Full Lifestyle Optimisation': '#00e5ff',
+                      'No Sodium Reduction':         '#e74c3c',
+                    };
+
+                    const trajPoints = whatIfData.trajectory ?? [];
+                    const W = 520, H = 110;
+                    const maxRisk = Math.max(...trajScenarios.flatMap(sc =>
+                      trajPoints.map((pt: any) => pt[sc]?.p90 ?? 0)
+                    ), 0.01);
+
+                    const toX = (week: number) => (week / 24) * W;
+                    const toY = (r: number)    => H - (r / maxRisk) * (H - 10) - 5;
+
+                    const makePath = (sc: string) =>
+                      trajPoints.map((pt: any, i: number) => {
+                        const v = pt[sc]?.mean ?? 0;
+                        return (i === 0 ? 'M' : 'L') + `${toX(pt.week).toFixed(1)},${toY(v).toFixed(1)}`;
+                      }).join(' ');
+
+                    const makeArea = (sc: string) => {
+                      const upper = trajPoints.map((pt: any) =>
+                        `${toX(pt.week).toFixed(1)},${toY(pt[sc]?.p90 ?? 0).toFixed(1)}`
+                      ).join(' L');
+                      const lower = [...trajPoints].reverse().map((pt: any) =>
+                        `${toX(pt.week).toFixed(1)},${toY(pt[sc]?.p10 ?? 0).toFixed(1)}`
+                      ).join(' L');
+                      return `M${upper} L${lower} Z`;
+                    };
+
+                    return (
+                      <>
+                        {/* ── Risk Type Toggle ── */}
+                        <div className="flex gap-2 mb-5">
+                          {(['cardiac', 'diabetes'] as const).map(rt => (
+                            <button
+                              key={rt}
+                              id={`whatif-toggle-${rt}`}
+                              onClick={() => setWhatIfRiskType(rt)}
+                              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                                whatIfRiskType === rt
+                                  ? rt === 'cardiac'
+                                    ? 'bg-red-500/20 border-red-500/50 text-red-300'
+                                    : 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                                  : 'bg-zinc-800/50 border-zinc-700 text-zinc-500 hover:text-zinc-300'
+                              }`}
+                            >
+                              {rt === 'cardiac' ? '🫀' : '🩸'} {rt === 'cardiac' ? 'Cardiac' : 'Diabetes'}
+                            </button>
+                          ))}
+                          <div className="ml-auto flex items-center gap-2">
+                            {whatIfData._mock && (
+                              <span className="text-[9px] text-amber-500/60 uppercase tracking-wider border border-amber-500/20 px-2 py-0.5 rounded">offline · mock data</span>
+                            )}
+                            <button
+                              id="whatif-refresh-btn"
+                              onClick={() => fetchWhatIf()}
+                              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-violet-600/30 text-zinc-400 hover:text-violet-300 border border-zinc-700 transition-all"
+                              title="Re-run simulation"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* ── Scenario Bars ── */}
+                        <div className="space-y-2.5 mb-6">
+                          {filtered.map((sc, idx) => {
+                            const delta  = sc.mean_risk - baseRisk;
+                            const isBase = sc.scenario === 'Current Trajectory';
+                            return (
+                              <div key={idx} className="group">
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <span className="text-[11px] text-zinc-300 font-semibold truncate max-w-[55%]" title={sc.scenario}>
+                                    {sc.scenario}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {!isBase && (
+                                      <span className={`text-[10px] font-bold ${delta < 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {delta < 0 ? '⬇' : '⬆'} {Math.abs(delta * 100).toFixed(1)}%
+                                      </span>
+                                    )}
+                                    <span className="text-[11px] font-black" style={{ color: sc.color }}>
+                                      {(sc.mean_risk * 100).toFixed(1)}%
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="relative h-2.5 bg-zinc-800 rounded-full overflow-visible">
+                                  {/* CI band */}
+                                  <div
+                                    className="absolute top-0 h-full rounded-full opacity-20"
+                                    style={{
+                                      left:  `${(sc.p05 / MAX_BAR) * 100}%`,
+                                      width: `${((sc.p95 - sc.p05) / MAX_BAR) * 100}%`,
+                                      backgroundColor: sc.color,
+                                    }}
+                                  />
+                                  {/* Mean bar */}
+                                  <div
+                                    className="absolute top-0 h-full rounded-full transition-all duration-700"
+                                    style={{
+                                      width: `${(sc.mean_risk / MAX_BAR) * 100}%`,
+                                      background: `linear-gradient(90deg, ${sc.color}99, ${sc.color})`,
+                                      boxShadow: `0 0 8px ${sc.color}55`,
+                                    }}
+                                  />
+                                  {/* Baseline tick */}
+                                  {isBase && (
+                                    <div
+                                      className="absolute top-[-3px] bottom-[-3px] w-px bg-white/50"
+                                      style={{ left: `${(sc.mean_risk / MAX_BAR) * 100}%` }}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* ── 6-Month Trajectory SVG ── */}
+                        <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-2xl p-4 mb-5">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                            <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">6-Month Trajectory Projection</span>
+                          </div>
+                          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 110 }}>
+                            {/* Grid lines */}
+                            {[0.25, 0.5, 0.75, 1.0].map(f => (
+                              <line key={f}
+                                x1={0} y1={toY(maxRisk * f)}
+                                x2={W} y2={toY(maxRisk * f)}
+                                stroke="#ffffff08" strokeWidth={1}
+                              />
+                            ))}
+                            {/* Areas + lines */}
+                            {trajScenarios.map(sc => (
+                              trajPoints.length > 0 && (
+                                <g key={sc}>
+                                  <path d={makeArea(sc)} fill={TRAJ_COLORS[sc]} fillOpacity={0.06} />
+                                  <path d={makePath(sc)} fill="none" stroke={TRAJ_COLORS[sc]} strokeWidth={1.8} strokeLinejoin="round" />
+                                </g>
+                              )
+                            ))}
+                          </svg>
+                          {/* Legend */}
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                            {trajScenarios.map(sc => (
+                              <div key={sc} className="flex items-center gap-1.5">
+                                <div className="w-3 h-0.5 rounded-full" style={{ backgroundColor: TRAJ_COLORS[sc] }} />
+                                <span className="text-[9px] text-zinc-500">{sc}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* ── Probability Statements ── */}
+                        <div className="bg-zinc-800/30 border border-zinc-700/40 rounded-xl p-4">
+                          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">Probability Statements (vs baseline)</p>
+                          <div className="space-y-1.5">
+                            {filtered.filter(s => s.scenario !== 'Current Trajectory').map((sc, idx) => {
+                              const drop5 = Math.max(0, Math.min(1, 0.5 + (baseRisk - sc.mean_risk) * 4));
+                              const isBetter = sc.mean_risk < baseRisk;
+                              return (
+                                <div key={idx} className="flex items-start gap-2">
+                                  <span className="mt-0.5 text-sm">{isBetter ? '✅' : '⚠️'}</span>
+                                  <p className="text-[11px] text-zinc-300 leading-relaxed">
+                                    <span className="font-bold" style={{ color: sc.color }}>{sc.scenario}</span>:
+                                    {' '}{isBetter ? 'There is a ' : 'Risk may rise — '}
+                                    {isBetter && (
+                                      <span className="font-black text-emerald-400">{(drop5 * 100).toFixed(0)}% chance</span>
+                                    )}
+                                    {isBetter
+                                      ? ' your risk drops ≥5% if maintained for 6 months.'
+                                      : `estimated +${((sc.mean_risk - baseRisk)*100).toFixed(1)}% vs baseline.`
+                                    }
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Summary */}
+                        <p className="text-[9px] text-zinc-600 mt-4 leading-relaxed italic">
+                          {whatIfData.summary}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+            </div>{/* end tab content */}
           </div>
         </div>
       )}

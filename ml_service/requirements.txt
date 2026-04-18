@@ -3,3 +3,11 @@ flask-cors
 pandas
 scikit-learn
 xgboost
+# ── Notebook / Monte Carlo extras ───────────────────────────────────────────
+numpy
+scipy
+matplotlib
+seaborn
+tqdm
+ipywidgets
+jupyter
