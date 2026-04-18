@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // --- THEME DATA: Define the look and feel for each organ ---
 const organThemes: Record<string, any> = {
@@ -145,6 +145,15 @@ function Page() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isHoveringBody, setIsHoveringBody] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const lastSourceFileRef = React.useRef<string | null>(null);
+  const [liveNotifications, setLiveNotifications] = useState<any[]>([
+    { icon: '🔥', title: 'Cardiac Rhythm Shift', desc: 'Heart rate variance detected at 04:38 AM. Minor fluctuation.', time: '2h ago', severity: 'warn' },
+    { icon: '💧', title: 'Hydration Reminder', desc: 'Renal filtration suggests low fluid intake today.', time: '3h ago', severity: 'info' },
+    { icon: '🌬️', title: 'Breath Pattern Normal', desc: 'Respiratory cycle aligned with optimal prana flow.', time: '5h ago', severity: 'ok' },
+    { icon: '⚡', title: 'Neural Coherence Peak', desc: 'Alpha wave synchrony reached meditative state at dawn.', time: '6h ago', severity: 'ok' },
+    { icon: '🌡️', title: 'Agni Metabolic Check', desc: 'Digestive fire steady. Post-meal thermogenesis within range.', time: '8h ago', severity: 'info' },
+    { icon: '👁️', title: 'Ocular Strain Alert', desc: 'Extended screen exposure. Blink rate below baseline.', time: '10h ago', severity: 'warn' }
+  ]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -159,6 +168,52 @@ function Page() {
     const tiltY = (x - centerX) / (rect.width / 2) * -12; // tilt around Y axis depends on X position
     setTilt({ x: tiltX, y: tiltY });
   };
+
+  useEffect(() => {
+    const fetchDriveStream = async () => {
+      try {
+        const res = await fetch('/api/drive-monitor');
+        const data = await res.json();
+        
+        if (data && data.predictions && !data.predictions.error) {
+          if (data.source_file === lastSourceFileRef.current) return; // Don't duplicate if file hasn't changed
+          lastSourceFileRef.current = data.source_file;
+
+          const preds = data.predictions;
+          const newNotifs: any[] = [];
+          
+          if (preds.cardiac_arrest_risk !== undefined) {
+             newNotifs.push({
+               icon: preds.cardiac_arrest_risk > 0 ? '⚠️' : '🔥',
+               title: 'Drive: Cardiac Model',
+               desc: preds.cardiac_arrest_risk > 0 ? 'Elevated cardiac risk detected from synced drive stream.' : 'Cardiac rhythms normal in drive stream.',
+               time: 'just now',
+               severity: preds.cardiac_arrest_risk > 0 ? 'warn' : 'ok'
+             });
+          }
+          if (preds.diabetes_risk !== undefined) {
+             newNotifs.push({
+               icon: preds.diabetes_risk > 0 ? '⚠️' : '💧',
+               title: 'Drive: Diabetes Model',
+               desc: preds.diabetes_risk > 0 ? 'Elevated diabetes risk detected.' : 'Metabolic markers stable in drive stream.',
+               time: 'just now',
+               severity: preds.diabetes_risk > 0 ? 'warn' : 'ok'
+             });
+          }
+          
+          if (newNotifs.length > 0) {
+             setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 6));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch drive stream", e);
+      }
+    };
+
+    const intervalId = setInterval(fetchDriveStream, 10000);
+    fetchDriveStream();
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleMouseEnter = (id: string) => {
     setHoveredRegion(id);
@@ -286,41 +341,19 @@ function Page() {
     <main className="relative min-h-screen w-full">
       <ThangkaFilters />
 
-      {/* Hand-Coded Thangka Health Twin Logo (Top Left) */}
-      <div className="fixed top-8 left-8 z-[150] flex items-center gap-4 pointer-events-none group">
-        <svg width="60" height="60" viewBox="0 0 100 100" fill="none" className="drop-shadow-[0_0_15px_rgba(255,215,0,0.3)]">
-          <defs>
-            <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#FFD700" /><stop offset="50%" stopColor="#B8860B" /><stop offset="100%" stopColor="#FFD700" />
-            </linearGradient>
-            <linearGradient id="lapis-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#1E3A8A" /><stop offset="100%" stopColor="#1e40af" />
-            </linearGradient>
-          </defs>
-          <circle cx="50" cy="50" r="45" stroke="url(#gold-grad)" strokeWidth="1.5" strokeDasharray="2 1" />
-          <circle cx="50" cy="50" r="40" stroke="url(#gold-grad)" strokeWidth="3" />
-          {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-            <path key={angle} d="M50 15V10" stroke="url(#gold-grad)" strokeWidth="4" strokeLinecap="round" transform={`rotate(${angle} 50 50)`} />
-          ))}
-          <g transform="translate(35, 30) scale(0.6)">
-            <path d="M10 10C10 30 40 30 40 50C40 70 10 70 10 90" stroke="#FFT700" strokeWidth="4" strokeLinecap="round" opacity="0.8" />
-            <path d="M40 10C40 30 10 30 10 50C10 70 40 70 40 90" stroke="#1E40AF" strokeWidth="4" strokeLinecap="round" />
-            {[15, 25, 35, 45, 55, 65, 75, 85].map((y) => (
-              <line key={y} x1={10 + (y < 50 ? (y - 10) / 2 : (90 - y) / 2)} y1={y} x2={40 - (y < 50 ? (y - 10) / 2 : (90 - y) / 2)} y2={y} stroke="url(#gold-grad)" strokeWidth="1" opacity="0.5" />
-            ))}
-          </g>
-          <circle cx="50" cy="50" r="22" stroke="url(#gold-grad)" strokeWidth="0.5" fill="rgba(30, 58, 138, 0.1)" />
-        </svg>
-
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black tracking-[0.2em] uppercase leading-none" style={{ background: 'linear-gradient(to right, #FFD700, #B8860B, #FFD700)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 5px rgba(255, 215, 0, 0.2))' }}>Tsukumo</h1>
-          </div>
-          <div className="flex items-center gap-1.5 mt-1">
-            <div className="w-1.5 h-[1.5px] bg-red-600 animate-pulse" /><span className="text-[9px] font-bold text-blue-400 uppercase tracking-[0.4em] opacity-80">Co-Health Twin</span>
-          </div>
+      {/* Updated Thangka Health Twin Logo (Top Left) */}
+      <div className="fixed top-6 left-8 z-[150] flex flex-col items-start gap-0.5 pointer-events-none group transition-all duration-500">
+        <img 
+          src="/assets/thangka/logo.png" 
+          alt="Tsukumo Logo" 
+          className="h-10 w-auto drop-shadow-[0_0_20px_rgba(255,215,0,0.4)] brightness-110 contrast-110"
+        />
+        <div className="flex items-center gap-1.5 ml-2 mt-[-4px]">
+          <div className="w-1.5 h-[1.5px] bg-red-600 animate-pulse shadow-[0_0_8px_rgba(220,38,38,0.8)]" />
+          <span className="text-[9px] font-bold text-blue-400 uppercase tracking-[0.4em] opacity-80 drop-shadow-sm">Co-Health Twin</span>
         </div>
       </div>
+
 
       {/* ======== NOTIFICATION SCROLL — Left Side ======== */}
       <div className="fixed left-6 top-1/2 -translate-y-1/2 z-[120] w-[260px] flex flex-col items-center" style={{ perspective: '800px' }}>
@@ -372,14 +405,7 @@ function Page() {
             </div>
 
             {/* Notification Items */}
-            {[
-              { icon: '🔥', title: 'Cardiac Rhythm Shift', desc: 'Heart rate variance detected at 04:38 AM. Minor fluctuation.', time: '2h ago', severity: 'warn' },
-              { icon: '💧', title: 'Hydration Reminder', desc: 'Renal filtration suggests low fluid intake today.', time: '3h ago', severity: 'info' },
-              { icon: '🌬️', title: 'Breath Pattern Normal', desc: 'Respiratory cycle aligned with optimal prana flow.', time: '5h ago', severity: 'ok' },
-              { icon: '⚡', title: 'Neural Coherence Peak', desc: 'Alpha wave synchrony reached meditative state at dawn.', time: '6h ago', severity: 'ok' },
-              { icon: '🌡️', title: 'Agni Metabolic Check', desc: 'Digestive fire steady. Post-meal thermogenesis within range.', time: '8h ago', severity: 'info' },
-              { icon: '👁️', title: 'Ocular Strain Alert', desc: 'Extended screen exposure. Blink rate below baseline.', time: '10h ago', severity: 'warn' },
-            ].map((notif, idx) => (
+            {liveNotifications.map((notif, idx) => (
               <div key={idx} className="notif-item mb-3 last:mb-0" style={{ animationDelay: `${idx * 0.08}s` }}>
                 <div className="flex gap-2.5 group">
                   {/* Ink drip decoration */}
