@@ -154,13 +154,15 @@ function Page() {
 
   const overlayConfig = {
     src: "/human-overlay.png",
-    width: "475px",
+    width: "450px",
     height: "auto",
-    top: "47%",
+    top: "48%",
     left: "50%",
     transform: "translate(-50%, -50%)",
     zIndex: 50,
   };
+
+
 
   const regions = [
     { id: "brain", name: "Brain", description: "Higher consciousness and neural processing node.", overlayStyle: { top: "5%", left: "45%", width: "10%", height: "8%" }, modalPosition: "right", isSpecial: true },
@@ -173,8 +175,32 @@ function Page() {
     { id: "left-kidney", name: "Left Kidney", description: "Renal system functions, filtration, and balances.", overlayStyle: { top: "38%", left: "55%", width: "10%", height: "12%" }, modalPosition: "right", isSpecial: true }
   ];
 
+  // We use `lastHovered` to retrieve the data so the modal's text and position
+  // don't instantly disappear/shift while the fade-out animation plays.
   const activeRegionData = regions.find(r => r.id === lastHovered);
   const selectedTheme = selectedRegion ? organThemes[selectedRegion] : null;
+
+  // Configuration for the center-bottom prediction overlay
+  const predictionOverlayConfig = {
+    src: "/prediction-overlay.png",
+    width: "325px",  // Adjustable width
+    height: "auto",
+    bottom: "2.7%",    // Adjustable bottom spacing
+    left: "59.7%",     // Middle of the screen horizontally
+    transform: "translateX(-50%)", // Centers it exactly at 50% left relative to its own width
+    zIndex: 40,
+  };
+
+  // Configuration for the left-bottom resources overlay
+  const resourcesOverlayConfig = {
+    src: "/resources-overlay.png",
+    width: "605px",  // Adjustable width
+    height: "auto",
+    bottom: "0%",    // Adjustable bottom spacing
+    left: "0%",      // Adjustable left spacing
+    zIndex: 40,
+  };
+
 
   const getPositionClasses = () => "right-[10%] top-1/2 -translate-y-1/2";
 
@@ -239,15 +265,15 @@ function Page() {
 
     const isCropped = !!theme.cropSide;
     return (
-      <div 
+      <div
         className={`${sizeClass} relative overflow-hidden flex items-center justify-center`}
         style={{
           maskImage: 'radial-gradient(circle, black 60%, transparent 100%)',
           WebkitMaskImage: 'radial-gradient(circle, black 60%, transparent 100%)'
         }}
       >
-        <img 
-          src={theme.icon} 
+        <img
+          src={theme.icon}
           alt={theme.title}
           style={{
             mixBlendMode: 'screen',
@@ -270,7 +296,7 @@ function Page() {
   return (
     <main className="relative min-h-screen w-full">
       <ThangkaFilters />
-      
+
       {/* Hand-Coded Thangka Health Twin Logo (Top Left) */}
       <div className="fixed top-8 left-8 z-[150] flex items-center gap-4 pointer-events-none group">
         <svg width="60" height="60" viewBox="0 0 100 100" fill="none" className="drop-shadow-[0_0_15px_rgba(255,215,0,0.3)]">
@@ -291,7 +317,7 @@ function Page() {
             <path d="M10 10C10 30 40 30 40 50C40 70 10 70 10 90" stroke="#FFT700" strokeWidth="4" strokeLinecap="round" opacity="0.8" />
             <path d="M40 10C40 30 10 30 10 50C10 70 40 70 40 90" stroke="#1E40AF" strokeWidth="4" strokeLinecap="round" />
             {[15, 25, 35, 45, 55, 65, 75, 85].map((y) => (
-              <line key={y} x1={10 + (y < 50 ? (y-10)/2 : (90-y)/2)} y1={y} x2={40 - (y < 50 ? (y-10)/2 : (90-y)/2)} y2={y} stroke="url(#gold-grad)" strokeWidth="1" opacity="0.5" />
+              <line key={y} x1={10 + (y < 50 ? (y - 10) / 2 : (90 - y) / 2)} y1={y} x2={40 - (y < 50 ? (y - 10) / 2 : (90 - y) / 2)} y2={y} stroke="url(#gold-grad)" strokeWidth="1" opacity="0.5" />
             ))}
           </g>
           <circle cx="50" cy="50" r="22" stroke="url(#gold-grad)" strokeWidth="0.5" fill="rgba(30, 58, 138, 0.1)" />
@@ -309,42 +335,42 @@ function Page() {
 
       {/* ======== NOTIFICATION SCROLL — Left Side ======== */}
       <div className="fixed left-6 top-1/2 -translate-y-1/2 z-[120] w-[260px] flex flex-col items-center" style={{ perspective: '800px' }}>
-        
+
         {/* Top Roller */}
         <div className="h-5 w-[108%] notif-roller rounded-full z-30 relative flex items-center justify-between">
           <div className="absolute -left-2 w-5 h-6 notif-roller-cap rounded-sm" />
           <div className="absolute -right-2 w-5 h-6 notif-roller-cap rounded-sm" />
           <div className="absolute left-1/2 -translate-x-1/2 w-10 h-2 rounded-full bg-gradient-to-b from-yellow-800/20 to-transparent" />
         </div>
-        
+
         {/* Parchment Body */}
         <div className="notif-scroll-body w-full" style={{ maxHeight: '55vh' }}>
-          
+
           {/* Torn edge overlays */}
           <div className="notif-scroll-left-tear" />
-          
+
           {/* Burn marks */}
           <div className="notif-scroll-burn-top" />
           <div className="notif-scroll-burn-bottom" />
-          
+
           {/* Coffee ring stains */}
           <div className="notif-scroll-stain" style={{ width: 60, height: 60, top: '15%', right: '5%' }} />
           <div className="notif-scroll-stain" style={{ width: 45, height: 45, bottom: '20%', left: '8%' }} />
-          
+
           {/* Foxing spots (age spots) */}
           <div className="notif-scroll-foxing" style={{ width: 8, height: 8, top: '22%', left: '18%' }} />
           <div className="notif-scroll-foxing" style={{ width: 6, height: 6, top: '45%', right: '15%' }} />
           <div className="notif-scroll-foxing" style={{ width: 10, height: 10, bottom: '30%', left: '30%' }} />
           <div className="notif-scroll-foxing" style={{ width: 5, height: 5, top: '60%', right: '25%' }} />
           <div className="notif-scroll-foxing" style={{ width: 7, height: 7, top: '75%', left: '45%' }} />
-          
+
           {/* Horizontal crease / fold lines */}
           <div className="notif-scroll-crease" style={{ top: '33%' }} />
           <div className="notif-scroll-crease" style={{ top: '66%' }} />
-          
+
           {/* Scrollable content area */}
           <div className="relative z-10 px-5 py-5 overflow-y-auto" style={{ maxHeight: '55vh', scrollbarWidth: 'none' }}>
-            
+
             {/* Title with wax seal */}
             <div className="flex items-center gap-3 mb-5 pb-3" style={{ borderBottom: '1px solid rgba(110, 75, 30, 0.25)' }}>
               <div className="notif-wax-seal flex-shrink-0">
@@ -373,7 +399,7 @@ function Page() {
                     <div className="w-px flex-1" style={{ background: 'linear-gradient(to bottom, rgba(80,50,15,0.3), transparent)' }} />
                     <div className="notif-ink-drip" />
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-1">
                       <h4 className="text-[11px] font-bold leading-tight" style={{ color: '#2a1508', fontFamily: 'Georgia, serif' }}>{notif.title}</h4>
@@ -387,7 +413,7 @@ function Page() {
                     <span className="text-[8px] uppercase tracking-wider mt-1 inline-block" style={{ color: '#9a7a50', fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>{notif.time}</span>
                   </div>
                 </div>
-                
+
                 {/* Separator — ink line */}
                 {idx < 5 && (
                   <div className="mt-2.5 mx-1" style={{ height: 1, background: 'linear-gradient(90deg, transparent 5%, rgba(100, 65, 20, 0.2) 20%, rgba(100, 65, 20, 0.15) 80%, transparent 95%)' }} />
@@ -403,7 +429,7 @@ function Page() {
             </div>
           </div>
         </div>
-        
+
         {/* Bottom Roller */}
         <div className="h-5 w-[108%] notif-roller rounded-full z-30 relative flex items-center justify-between">
           <div className="absolute -left-2 w-5 h-6 notif-roller-cap rounded-sm" />
@@ -454,8 +480,8 @@ function Page() {
                       <span className={`${selectedTheme.accent} text-[10px] font-bold px-2 py-0.5 rounded-full border ${selectedTheme.border}`}> {stat.status} </span>
                     </div>
                     <div className="flex items-baseline gap-2">
-                       <span className="text-4xl font-bold text-white group-hover:scale-105 transition-transform origin-left">{stat.value}</span>
-                       <span className="text-zinc-500 font-medium text-sm">{stat.unit}</span>
+                      <span className="text-4xl font-bold text-white group-hover:scale-105 transition-transform origin-left">{stat.value}</span>
+                      <span className="text-zinc-500 font-medium text-sm">{stat.unit}</span>
                     </div>
                     <div className="mt-5 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                       <div className={`h-full bg-gradient-to-r from-${selectedTheme.color}-600 to-${selectedTheme.color}-400 opacity-80`} style={{ width: `${60 + Math.random() * 30}%` }} />
@@ -470,7 +496,7 @@ function Page() {
                 </div>
                 <p className="text-zinc-300 text-sm leading-relaxed font-light italic"> "{selectedTheme.description}" </p>
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  {renderThangkaIcon({...selectedTheme, colorTheme: 'grayscale'}, "w-24 h-24")}
+                  {renderThangkaIcon({ ...selectedTheme, colorTheme: 'grayscale' }, "w-24 h-24")}
                 </div>
               </div>
             </div>
@@ -612,12 +638,12 @@ function Page() {
             <div className={`relative flex flex-col items-center ${hoveredRegion && !selectedRegion ? "animate-unroll" : ""}`} style={{ perspective: '600px' }}>
               {/* Top Roller — stays fixed, organ-themed */}
               <div className="h-5 w-[106%] scroll-roller rounded-full z-20 relative flex items-center justify-between" style={{ background: sc.rollerGrad }}>
-                 <div className="absolute -left-1.5 w-4 h-6 rounded-sm" style={{ background: sc.knobGrad, border: `1px solid ${sc.knobBorder}`, boxShadow: `0 0 4px ${sc.glowColor}, inset 0 1px 0 rgba(255,255,255,0.2)` }} />
-                 <div className="absolute -right-1.5 w-4 h-6 rounded-sm" style={{ background: sc.knobGrad, border: `1px solid ${sc.knobBorder}`, boxShadow: `0 0 4px ${sc.glowColor}, inset 0 1px 0 rgba(255,255,255,0.2)` }} />
-                 {/* Decorative center cap */}
-                 <div className="absolute left-1/2 -translate-x-1/2 w-8 h-2 rounded-full" style={{ background: `linear-gradient(to bottom, ${sc.knobBorder}50, transparent)` }} />
+                <div className="absolute -left-1.5 w-4 h-6 rounded-sm" style={{ background: sc.knobGrad, border: `1px solid ${sc.knobBorder}`, boxShadow: `0 0 4px ${sc.glowColor}, inset 0 1px 0 rgba(255,255,255,0.2)` }} />
+                <div className="absolute -right-1.5 w-4 h-6 rounded-sm" style={{ background: sc.knobGrad, border: `1px solid ${sc.knobBorder}`, boxShadow: `0 0 4px ${sc.glowColor}, inset 0 1px 0 rgba(255,255,255,0.2)` }} />
+                {/* Decorative center cap */}
+                <div className="absolute left-1/2 -translate-x-1/2 w-8 h-2 rounded-full" style={{ background: `linear-gradient(to bottom, ${sc.knobBorder}50, transparent)` }} />
               </div>
-              
+
               {/* Scroll Paper — organ-themed parchment */}
               <div className="relative w-full scroll-paper font-serif" style={{
                 backgroundColor: sc.paper,
@@ -627,7 +653,7 @@ function Page() {
                 boxShadow: `inset 0 0 60px ${sc.paperEdge}, inset 0 2px 4px rgba(255,245,220,0.3), 0 2px 8px rgba(0,0,0,0.3), 0 0 30px ${sc.glowColor}`,
                 color: sc.textColor,
               }}>
-                
+
                 {/* Decorative SVG border stitch */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none z-[2]" preserveAspectRatio="none">
                   <rect x="6" y="6" rx="2" fill="none" stroke={sc.stitchColor} strokeWidth="1" strokeDasharray="4 3" style={{ width: 'calc(100% - 12px)', height: 'calc(100% - 12px)' }} />
@@ -636,17 +662,17 @@ function Page() {
                 {/* Corner ornament — organ-themed */}
                 <div className="absolute top-2 right-3 text-sm pointer-events-none z-[3]" style={{ color: sc.ornamentColor }}>◈</div>
                 <div className="absolute bottom-2 left-3 text-sm pointer-events-none z-[3] rotate-180" style={{ color: sc.ornamentColor }}>◈</div>
-                
+
                 {/* Inner content wrapper — fades in after the paper unrolls */}
                 <div className="scroll-paper-inner px-6 py-6 relative z-10">
                   {/* Background Accent Glow on Paper */}
                   <div className="absolute -right-20 -top-20 w-40 h-40 rounded-full blur-[60px] opacity-20" style={{ backgroundColor: sc.glowColor }} />
-                
+
                   <div className="flex flex-col gap-4 relative z-10">
                     <div className="flex items-center justify-between pb-3" style={{ borderBottom: `1px solid ${sc.divider}` }}>
                       <div className="flex items-center gap-3">
                         <div className="p-1.5 rounded-lg shadow-inner" style={{ backgroundColor: sc.iconBg, border: `1px solid ${sc.iconBorder}` }}>
-                           {renderThangkaIcon(theme, "w-10 h-10")}
+                          {renderThangkaIcon(theme, "w-10 h-10")}
                         </div>
                         <div>
                           <h2 className="text-xl font-bold tracking-tight leading-none" style={{ color: sc.textColor }}>{activeRegionData.name}</h2>
@@ -655,11 +681,11 @@ function Page() {
                       </div>
                       <div className="w-2.5 h-2.5 rounded-full animate-pulse border border-black/20" style={{ backgroundColor: sc.subtitleColor, boxShadow: `0 0 8px ${sc.statusGlow}` }} />
                     </div>
-                    
+
                     <p className="text-sm font-medium leading-relaxed opacity-90">
                       {activeRegionData.description}
                     </p>
-                    
+
                     <div className="mt-1 flex flex-wrap gap-2">
                       <span className="px-2 py-0.5 text-[9px] uppercase tracking-wider font-black rounded-sm shadow-sm" style={{ backgroundColor: sc.tagBg, border: `1px solid ${sc.tagBorder}`, color: sc.tagText }}>
                         Status: Scanning
@@ -671,17 +697,59 @@ function Page() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Bottom Roller — drops down, organ-themed */}
               <div className="h-5 w-[106%] scroll-roller scroll-roller-bottom rounded-full z-20 relative flex items-center justify-between" style={{ background: sc.rollerGrad }}>
-                 <div className="absolute -left-1.5 w-4 h-6 rounded-sm" style={{ background: sc.knobGrad, border: `1px solid ${sc.knobBorder}`, boxShadow: `0 0 4px ${sc.glowColor}, inset 0 1px 0 rgba(255,255,255,0.2)` }} />
-                 <div className="absolute -right-1.5 w-4 h-6 rounded-sm" style={{ background: sc.knobGrad, border: `1px solid ${sc.knobBorder}`, boxShadow: `0 0 4px ${sc.glowColor}, inset 0 1px 0 rgba(255,255,255,0.2)` }} />
-                 <div className="absolute left-1/2 -translate-x-1/2 w-8 h-2 rounded-full" style={{ background: `linear-gradient(to bottom, ${sc.knobBorder}50, transparent)` }} />
+                <div className="absolute -left-1.5 w-4 h-6 rounded-sm" style={{ background: sc.knobGrad, border: `1px solid ${sc.knobBorder}`, boxShadow: `0 0 4px ${sc.glowColor}, inset 0 1px 0 rgba(255,255,255,0.2)` }} />
+                <div className="absolute -right-1.5 w-4 h-6 rounded-sm" style={{ background: sc.knobGrad, border: `1px solid ${sc.knobBorder}`, boxShadow: `0 0 4px ${sc.glowColor}, inset 0 1px 0 rgba(255,255,255,0.2)` }} />
+                <div className="absolute left-1/2 -translate-x-1/2 w-8 h-2 rounded-full" style={{ background: `linear-gradient(to bottom, ${sc.knobBorder}50, transparent)` }} />
               </div>
             </div>
           );
         })()}
       </div>
+
+      {/* Prediction Overlay (Center Bottom) */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: predictionOverlayConfig.bottom,
+          left: predictionOverlayConfig.left,
+          transform: predictionOverlayConfig.transform,
+          width: predictionOverlayConfig.width,
+          height: predictionOverlayConfig.height,
+          zIndex: predictionOverlayConfig.zIndex,
+        }}
+        className="pointer-events-none drop-shadow-xl"
+      >
+        <img
+          src={predictionOverlayConfig.src}
+          alt="Prediction Overlay"
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      </div>
+
+      {/* Resources Overlay (Left Bottom) */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: resourcesOverlayConfig.bottom,
+          left: resourcesOverlayConfig.left,
+          width: resourcesOverlayConfig.width,
+          height: resourcesOverlayConfig.height,
+          zIndex: resourcesOverlayConfig.zIndex,
+        }}
+        className="pointer-events-none drop-shadow-xl"
+      >
+        <img
+          src={resourcesOverlayConfig.src}
+          alt="Resources Overlay"
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      </div>
+
+      {/* Put your actual page background content below */}
+      <div className="relative z-10 p-8 text-center" />
     </main>
   );
 }
