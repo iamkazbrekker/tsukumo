@@ -172,11 +172,7 @@ function Page() {
   const lastSourceFileRef = React.useRef<string | null>(null);
   const [liveNotifications, setLiveNotifications] = useState<any[]>([
     { icon: '🔥', title: 'Cardiac Rhythm Shift', desc: 'Heart rate variance detected at 04:38 AM. Minor fluctuation.', time: '2h ago', severity: 'warn' },
-    { icon: '💧', title: 'Hydration Reminder', desc: 'Renal filtration suggests low fluid intake today.', time: '3h ago', severity: 'info' },
-    { icon: '🌬️', title: 'Breath Pattern Normal', desc: 'Respiratory cycle aligned with optimal prana flow.', time: '5h ago', severity: 'ok' },
-    { icon: '⚡', title: 'Neural Coherence Peak', desc: 'Alpha wave synchrony reached meditative state at dawn.', time: '6h ago', severity: 'ok' },
-    { icon: '🌡️', title: 'Agni Metabolic Check', desc: 'Digestive fire steady. Post-meal thermogenesis within range.', time: '8h ago', severity: 'info' },
-    { icon: '👁️', title: 'Ocular Strain Alert', desc: 'Extended screen exposure. Blink rate below baseline.', time: '10h ago', severity: 'warn' }
+    { icon: '💧', title: 'Hydration Reminder', desc: 'Renal filtration suggests low fluid intake today.', time: '3h ago', severity: 'info' }
   ]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -228,7 +224,7 @@ function Page() {
           }
           
           if (newNotifs.length > 0) {
-             setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 6));
+             setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 2));
           }
         }
       } catch (e) {
