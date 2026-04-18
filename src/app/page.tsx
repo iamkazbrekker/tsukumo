@@ -166,9 +166,23 @@ function Page() {
   const [showInsightsModal, setShowInsightsModal] = useState(false);
   const [insightsTab, setInsightsTab] = useState<'diagnostics' | 'whatif'>('diagnostics');
   const [latestInsights, setLatestInsights] = useState<any>(null);
+  const [latestVitals, setLatestVitals] = useState<any>(null);
   const [whatIfData, setWhatIfData] = useState<WhatIfData | null>(null);
   const [whatIfLoading, setWhatIfLoading] = useState(false);
   const [whatIfRiskType, setWhatIfRiskType] = useState<'cardiac' | 'diabetes'>('cardiac');
+  const [predictionLogs, setPredictionLogs] = useState<any[]>([]);
+  
+  // Hospital Record State
+  const [showHospitalModal, setShowHospitalModal] = useState(false);
+  const [hospitalLogging, setHospitalLogging] = useState(false);
+  const [hospitalForm, setHospitalForm] = useState({
+    patientId: 'PT-8890-X',
+    hospital: 'Sacred Root Medical Nexus',
+    diagnosis: 'Mild hypertension, respiratory clearance observed.',
+    prescriptions: 'Lisinopril 10mg daily, Albuterol as needed.',
+    notes: 'Patient reports stable energy levels. Routine health record synchronization.',
+  });
+
   const lastSourceFileRef = React.useRef<string | null>(null);
   const [liveNotifications, setLiveNotifications] = useState<any[]>([
     { icon: '🔥', title: 'Cardiac Rhythm Shift', desc: 'Heart rate variance detected at 04:38 AM. Minor fluctuation.', time: '2h ago', severity: 'warn' },
@@ -178,6 +192,33 @@ function Page() {
     { icon: '🌡️', title: 'Agni Metabolic Check', desc: 'Digestive fire steady. Post-meal thermogenesis within range.', time: '8h ago', severity: 'info' },
     { icon: '👁️', title: 'Ocular Strain Alert', desc: 'Extended screen exposure. Blink rate below baseline.', time: '10h ago', severity: 'warn' }
   ]);
+
+  const handleHospitalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setHospitalLogging(true);
+    try {
+      const res = await fetch('/api/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(hospitalForm)
+      });
+      if (res.ok) {
+        setShowHospitalModal(false);
+        // Force an immediate poll refresh to show the new record instantly
+        const driveMonitorRes = await fetch('/api/drive-monitor', { cache: 'no-store' });
+        const data = await driveMonitorRes.json();
+        if (data && data.predictions) {
+          setLatestInsights(data.predictions);
+          setLatestVitals(data.patient_data);
+          lastSourceFileRef.current = data.source_file;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHospitalLogging(false);
+    }
+  };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -205,6 +246,19 @@ function Page() {
 
           const preds = data.predictions;
           setLatestInsights(preds);
+          setLatestVitals(data.patient_data);
+
+          // Add to Live Neural Feed
+          const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const logEntry = {
+            id: Date.now(),
+            time: timestamp,
+            cardiac: preds.cardiac_arrest_risk === 1 ? '!! HIGH RISK !!' : 'STABLE',
+            kidney: preds.kidney_stones_risk === 1 ? '!! CALC DETECTED !!' : 'CLEAR',
+            resp: preds.respiratory_risk === 1 ? '!! ANOMALY !!' : 'NORMAL',
+            source: data.source_file.split('_').pop()?.replace('.json','') || 'DRIVE'
+          };
+          setPredictionLogs(prev => [logEntry, ...prev].slice(0, 5));
 
           const newNotifs: any[] = [];
           
@@ -226,9 +280,36 @@ function Page() {
                severity: preds.diabetes_risk > 0 ? 'warn' : 'ok'
              });
           }
+          if (preds.kidney_stones_risk !== undefined) {
+             newNotifs.push({
+               icon: preds.kidney_stones_risk > 0 ? '⚠️' : '💎',
+               title: 'Drive: Renal Model',
+               desc: preds.kidney_stones_risk > 0 ? 'Potential calculus (stones) detected in renal scan.' : 'Kidney filtration markers appear clear.',
+               time: 'just now',
+               severity: preds.kidney_stones_risk > 0 ? 'warn' : 'ok'
+             });
+          }
+          if (preds.respiratory_risk !== undefined) {
+             newNotifs.push({
+               icon: preds.respiratory_risk > 0 ? '⚠️' : '🌬️',
+               title: 'Drive: Respiratory Model',
+               desc: preds.respiratory_risk > 0 ? 'Respiratory pattern anomaly detected by AI.' : 'Breath patterns synchronized with baseline.',
+               time: 'just now',
+               severity: preds.respiratory_risk > 0 ? 'warn' : 'ok'
+             });
+          }
+          if (preds.burnout_risk !== undefined) {
+            newNotifs.push({
+              icon: preds.burnout_risk > 0 ? '⚠️' : '🧠',
+              title: 'Drive: Burnout Model',
+              desc: preds.burnout_risk > 0 ? 'High neurological exhaustion/burnout risk detected.' : 'Neural coherence and mental state balanced.',
+              time: 'just now',
+              severity: preds.burnout_risk > 0 ? 'warn' : 'ok'
+            });
+         }
           
           if (newNotifs.length > 0) {
-             setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 6));
+             setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 10));
           }
         }
       } catch (e) {
@@ -307,7 +388,89 @@ function Page() {
   // We use `lastHovered` to retrieve the data so the modal's text and position
   // don't instantly disappear/shift while the fade-out animation plays.
   const activeRegionData = regions.find(r => r.id === lastHovered);
-  const selectedTheme = selectedRegion ? organThemes[selectedRegion] : null;
+
+  // Deep clone and inject ML predictions dynamically
+  const getDynamicOrganTheme = (regionId: string) => {
+    const base = organThemes[regionId];
+    if (!base) return null;
+    const theme = JSON.parse(JSON.stringify(base));
+
+    if (latestInsights) {
+      if (regionId === 'heart') {
+        const risk = latestInsights.cardiac_arrest_risk;
+        const hr = latestVitals?.heartRate || 72;
+        const isCritical = hr > 110 || risk === 1;
+        theme.stats[0] = { label: "ML: Cardiac Risk", value: risk === 1 ? 'ELEVATED' : 'STABLE', unit: `Level ${risk || 0}`, status: risk === 1 ? "WARN" : "OK" };
+        theme.stats[1] = { label: "Heart Rate", value: Math.round(hr).toString(), unit: "BPM", status: hr > 100 ? "WARN" : "OK" };
+        if (isCritical) { 
+          theme.color = 'red'; 
+          theme.accent = "text-red-500";
+          theme.bg = "bg-red-500/20";
+          theme.border = "border-red-500/60";
+          theme.glow = "shadow-[0_0_80px_rgba(220,38,38,0.5)]";
+          theme.description = hr > 130 ? "CRITICAL: Tachycardic crisis detected. Hemodynamic instability imminent." : "Elevated hemodynamic stress pattern detected via predictive models."; 
+        }
+      }
+      else if (regionId === 'left-lung' || regionId === 'right-lung') {
+        const risk = latestInsights.respiratory_risk;
+        const rr = latestVitals?.resp_rate || 14;
+        const spo2 = latestVitals?.spo2 || 98;
+        const isCritical = spo2 < 92 || rr > 28 || risk === 1;
+        theme.stats[0] = { label: "ML: Respiratory", value: risk === 1 ? 'ANOMALY' : 'CLEAR', unit: `Level ${risk || 0}`, status: risk === 1 ? "WARN" : "OK" };
+        theme.stats[1] = { label: "Blood Oxygen", value: Math.round(spo2).toString(), unit: "% SpO2", status: spo2 < 94 ? "WARN" : "OK" };
+        theme.stats[2] = { label: "Breath Rate", value: Math.round(rr).toString(), unit: "/min", status: rr > 20 ? "WARN" : "OK" };
+        if (isCritical) { 
+          theme.color = 'amber'; 
+          theme.accent = "text-amber-400";
+          theme.bg = "bg-amber-500/20";
+          theme.border = "border-amber-500/60";
+          theme.glow = "shadow-[0_0_80px_rgba(245,158,11,0.5)]";
+          theme.description = spo2 < 90 ? "CRITICAL: Hypoxia detected. Respiratory failure protocol advised." : "Respiratory restriction or anomaly identified by NLP diagnostic inference."; 
+        }
+      }
+      else if (regionId === 'left-kidney' || regionId === 'right-kidney') {
+        const risk = latestInsights.kidney_stones_risk;
+        theme.stats[0] = { label: "ML: Renal Calculus", value: risk === 1 ? 'DETECTED' : 'CLEAR', unit: `Level ${risk || 0}`, status: risk === 1 ? "WARN" : "OK" };
+        if (risk > 0) { 
+          theme.color = 'indigo'; 
+          theme.accent = "text-indigo-400";
+          theme.border = "border-indigo-500/60";
+          theme.glow = "shadow-[0_0_60px_rgba(99,102,241,0.4)]";
+          theme.description = "Renal predictive module indicates high probability of calculus formation."; 
+        }
+      }
+      else if (regionId === 'stomach') {
+        const risk = latestInsights.diabetes_risk;
+        const glucose = latestVitals?.glucose || 95;
+        const isCritical = glucose > 200 || risk === 1;
+        theme.stats[0] = { label: "ML: Diabetes Risk", value: risk === 1 ? "ELEVATED" : "CLEAR", unit: "Metabolic", status: risk === 1 ? "WARN" : "OK" };
+        theme.stats[1] = { label: "Fasting Glucose", value: Math.round(glucose).toString(), unit: "mg/dL", status: glucose > 140 ? "WARN" : "OK" };
+        if (isCritical) {
+          theme.color = 'red';
+          theme.accent = "text-red-500";
+          theme.bg = "bg-red-500/20";
+          theme.border = "border-red-500/60";
+          theme.glow = "shadow-[0_0_80px_rgba(220,38,38,0.5)]";
+          theme.description = glucose > 250 ? "CRITICAL: Hyperglycemic crisis. Insulin protocol required." : "Elevated metabolic risk detected.";
+        }
+      }
+      else if (regionId === 'brain') {
+        const risk = latestInsights.burnout_risk;
+        const activity = latestVitals?.activity || 0;
+        theme.stats[0] = { label: "ML: Burnout State", value: risk === 1 ? "HIGH" : "BALANCED", unit: "Neural", status: risk === 1 ? "EXHAUSTION" : "STABLE" };
+        theme.stats[1] = { label: "Activity Factor", value: activity.toFixed(2), unit: "METs", status: "OK" };
+        if (risk > 0) {
+          theme.color = 'violet';
+          theme.accent = "text-violet-400";
+          theme.glow = "shadow-[0_0_70px_rgba(167,139,250,0.5)]";
+        }
+      }
+    }
+
+    return theme;
+  };
+
+  const selectedTheme = selectedRegion ? getDynamicOrganTheme(selectedRegion) : null;
 
   // Configuration for the center-bottom prediction overlay
   const predictionOverlayConfig = {
@@ -411,6 +574,72 @@ function Page() {
         </div>
       </div>
 
+
+      {/* Golden Hand-Carved Button */}
+      <button 
+        onClick={() => setShowHospitalModal(true)}
+        className="fixed top-6 right-8 z-[150] w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95"
+        style={{
+          background: 'linear-gradient(135deg, #FFD700, #B8860B, #FFD700)',
+          boxShadow: '0 4px 15px rgba(218, 165, 32, 0.4), inset 0 2px 5px rgba(255, 255, 255, 0.5), inset 0 -2px 5px rgba(139, 69, 19, 0.5)',
+          border: '2px solid #DAA520',
+          fontSize: '28px',
+          textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+        }}
+      >
+        <span className="drop-shadow-md">🤲</span>
+      </button>
+
+      {/* Hospital Record Injection Modal */}
+      {showHospitalModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity">
+          <div className="relative w-full max-w-lg bg-zinc-900 border border-yellow-700/50 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(218,165,32,0.15)] p-6">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 opacity-80" />
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-500 to-amber-200">
+                Log Hospital Record
+              </h2>
+              <button onClick={() => setShowHospitalModal(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleHospitalSubmit} className="space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-1 space-y-1">
+                  <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Patient ID</label>
+                  <input type="text" value={hospitalForm.patientId} onChange={e => setHospitalForm({...hospitalForm, patientId: e.target.value})} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Provider</label>
+                  <input type="text" value={hospitalForm.hospital} onChange={e => setHospitalForm({...hospitalForm, hospital: e.target.value})} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Primary Diagnosis</label>
+                <input type="text" value={hospitalForm.diagnosis} onChange={e => setHospitalForm({...hospitalForm, diagnosis: e.target.value})} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Prescriptions / Rx</label>
+                <input type="text" value={hospitalForm.prescriptions} onChange={e => setHospitalForm({...hospitalForm, prescriptions: e.target.value})} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Clinical Notes</label>
+                <textarea value={hospitalForm.notes} onChange={e => setHospitalForm({...hospitalForm, notes: e.target.value})} rows={3} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none resize-none" />
+              </div>
+
+              <button type="submit" disabled={hospitalLogging} className="w-full mt-4 py-3 rounded-lg font-bold text-sm shadow-md transition-all active:scale-[0.98] disabled:opacity-50"
+                style={{ background: 'linear-gradient(to right, #B8860B, #FFD700)', color: '#4a3520' }}
+              >
+                {hospitalLogging ? 'Injecting to Nexus...' : 'Inject Secure Record'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ======== NOTIFICATION SCROLL — Left Side ======== */}
       <div className="fixed right-50 top-1/3 -translate-y-1/2 z-[90] w-[260px] flex flex-col items-center" style={{ perspective: '800px' }}>
@@ -565,7 +794,7 @@ function Page() {
               
               {/* Magnified Content Reveal */}
               <div className="lens-magnified-content flex items-center justify-center">
-                {hoveredRegion && organThemes[hoveredRegion] ? (
+                {hoveredRegion && getDynamicOrganTheme(hoveredRegion) ? (
                   (() => {
                     const region = regions.find(r => r.id === hoveredRegion);
                     if (!region) return null;
@@ -585,9 +814,9 @@ function Page() {
                     const offsetY = (centerY - mousePos.y) * 1.6;
 
                     return renderThangkaIcon(
-                      organThemes[hoveredRegion], 
+                      getDynamicOrganTheme(hoveredRegion), 
                       "w-16 h-16", 
-                      organThemes[hoveredRegion].icon.endsWith('.jpg') ? 'screen' : undefined,
+                      getDynamicOrganTheme(hoveredRegion).icon.endsWith('.jpg') ? 'screen' : undefined,
                       { x: offsetX, y: offsetY }
                     );
                   })()
@@ -671,8 +900,8 @@ function Page() {
       )}
 
       <div className={`fixed z-[100] w-[340px] transition-all duration-300 ease-out pointer-events-none ${getPositionClasses()} ${hoveredRegion && !selectedRegion ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"}`}>
-        {activeRegionData && organThemes[lastHovered || ""] && (() => {
-          const theme = organThemes[lastHovered || ""];
+        {activeRegionData && getDynamicOrganTheme(lastHovered || "") && (() => {
+          const theme = getDynamicOrganTheme(lastHovered || "");
 
           // --- Per-organ scroll color palette ---
           const scrollColors: Record<string, { paper: string; paperEdge: string; rollerGrad: string; knobGrad: string; knobBorder: string; borderColor: string; textColor: string; subtitleColor: string; stitchColor: string; ornamentColor: string; glowColor: string; tagBg: string; tagBorder: string; tagText: string; iconBg: string; iconBorder: string; divider: string; statusGlow: string }> = {
@@ -875,7 +1104,7 @@ function Page() {
         })()}
       </div>
 
-      {/* Prediction Overlay (Center Bottom) */}
+      {/* Prediction Overlay (Center Bottom) with Live Neural Feed */}
       <div
         style={{
           position: "fixed",
@@ -886,15 +1115,21 @@ function Page() {
           height: predictionOverlayConfig.height,
           zIndex: predictionOverlayConfig.zIndex,
         }}
-        className="pointer-events-auto cursor-pointer drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:scale-105 transition-all duration-300 group"
-        onClick={() => setShowInsightsModal(true)}
+        className="pointer-events-none"
       >
-        <img
-          src={predictionOverlayConfig.src}
-          alt="Prediction Overlay"
-          style={{ width: "100%", height: "100%", objectFit: "contain" }}
-        />
-        <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity animate-pulse pointer-events-none" />
+
+
+        <div 
+          className="relative pointer-events-auto cursor-pointer drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:scale-105 transition-all duration-300 group mt-4"
+          onClick={() => setShowInsightsModal(true)}
+        >
+          <img
+            src={predictionOverlayConfig.src}
+            alt="Prediction Overlay"
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+          <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity animate-pulse pointer-events-none" />
+        </div>
       </div>
       
       {/* ML Insights Modal */}
@@ -975,30 +1210,86 @@ function Page() {
                       </div>
                     </div>
 
-                    {/* Diabetes Card */}
+                    {/* Burnout Card */}
                     <div className="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50 relative overflow-hidden group">
-                      <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors" />
+                      <div className="absolute -right-10 -top-10 w-32 h-32 bg-violet-500/5 rounded-full blur-2xl group-hover:bg-violet-500/10 transition-colors" />
                       <div className="flex items-center gap-3 mb-6 relative z-10">
-                        <span className="text-3xl drop-shadow-md">🩸</span>
-                        <h3 className="text-lg font-bold text-zinc-200">Diabetes Predictor</h3>
+                        <span className="text-3xl drop-shadow-md">🧠</span>
+                        <h3 className="text-lg font-bold text-zinc-200">Neural Burnout Model</h3>
                       </div>
                       <div className="space-y-5 relative z-10">
                         <div>
                           <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Algorithm Alert Status</div>
-                          {latestInsights?.diabetes_risk === 1 ? (
+                          {latestInsights?.burnout_risk === 1 ? (
                             <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 py-2 px-4 rounded-lg w-max">
                               <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
-                              <span className="text-red-500 font-black text-lg tracking-wider">ELEVATED (1)</span>
+                              <span className="text-red-500 font-black text-lg tracking-wider">EXHAUSTED (1)</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 py-2 px-4 rounded-lg w-max">
                               <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                              <span className="text-emerald-500 font-bold text-lg tracking-wider">LOW RISK (0)</span>
+                              <span className="text-emerald-500 font-bold text-lg tracking-wider">COHERENT (0)</span>
                             </div>
                           )}
                         </div>
                         <p className="text-xs text-zinc-400 font-medium leading-relaxed">
-                          Applying nonlinear <i>XGBoost</i> decision trees over fasting glucose histories alongside synchronized drive repository states.
+                          Processing cognitive load metadata and stressor ratios via <i>XGBoost</i> neural exhaustion matrix.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Kidney Card */}
+                    <div className="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50 relative overflow-hidden group">
+                      <div className="absolute -right-10 -top-10 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-colors" />
+                      <div className="flex items-center gap-3 mb-6 relative z-10">
+                        <span className="text-3xl drop-shadow-md">💎</span>
+                        <h3 className="text-lg font-bold text-zinc-200">Renal Calculus Model</h3>
+                      </div>
+                      <div className="space-y-5 relative z-10">
+                        <div>
+                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Algorithm Alert Status</div>
+                          {latestInsights?.kidney_stones_risk === 1 ? (
+                            <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 py-2 px-4 rounded-lg w-max">
+                              <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" />
+                              <span className="text-red-500 font-black text-lg tracking-wider">STONES DETECTED (1)</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 py-2 px-4 rounded-lg w-max">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                              <span className="text-emerald-500 font-bold text-lg tracking-wider">CLEAR (0)</span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-400 font-medium leading-relaxed">
+                          Detecting mineral saturation through <i>Random Forest</i> urinary constituent analysis.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Respiratory Card */}
+                    <div className="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50 relative overflow-hidden group">
+                      <div className="absolute -right-10 -top-10 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl group-hover:bg-cyan-500/10 transition-colors" />
+                      <div className="flex items-center gap-3 mb-6 relative z-10">
+                        <span className="text-3xl drop-shadow-md">🌬️</span>
+                        <h3 className="text-lg font-bold text-zinc-200">Respiratory NLP Model</h3>
+                      </div>
+                      <div className="space-y-5 relative z-10">
+                        <div>
+                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2">Algorithm Alert Status</div>
+                          {latestInsights?.respiratory_risk === 1 ? (
+                            <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 py-2 px-4 rounded-lg w-max">
+                              <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />
+                              <span className="text-amber-500 font-black text-lg tracking-wider">ANOMALY (1)</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 py-2 px-4 rounded-lg w-max">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8_rgba(16,185,129,0.8)]" />
+                              <span className="text-emerald-500 font-bold text-lg tracking-wider">NORMAL (0)</span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-400 font-medium leading-relaxed">
+                          Extracting biometric semantics from clinical notes via <i>Tfidf-Vectorization</i> and <i>Gradient Boosting</i>.
                         </p>
                       </div>
                     </div>

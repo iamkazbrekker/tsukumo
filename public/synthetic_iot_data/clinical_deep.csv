@@ -1,0 +1,176 @@
+date,category,marker,value,unit,reference_range
+2025-01-01,Blood,Glucose (Fasting),82.2,mg/dL,70-100
+2025-01-01,Blood,HbA1c,5.2,%,< 5.7
+2025-01-01,Blood,LDL Cholesterol,123.6,mg/dL,< 100
+2025-01-01,Blood,Vitamin D,39.5,ng/mL,30-100
+2025-01-01,Microbiome,Shannon Diversity Index,3.97,index,3.0-5.0
+2025-01-01,Microbiome,Bacteroidetes/Firmicutes Ratio,1.14,ratio,N/A
+2025-01-01,Microbiome,Akkermansia muciniphila,2.58,%,1.0-4.0
+2025-04-01,Blood,Glucose (Fasting),78.2,mg/dL,70-100
+2025-04-01,Blood,HbA1c,5.5,%,< 5.7
+2025-04-01,Blood,LDL Cholesterol,96.7,mg/dL,< 100
+2025-04-01,Blood,Vitamin D,21.8,ng/mL,30-100
+2025-04-01,Microbiome,Shannon Diversity Index,3.78,index,3.0-5.0
+2025-04-01,Microbiome,Bacteroidetes/Firmicutes Ratio,0.8,ratio,N/A
+2025-04-01,Microbiome,Akkermansia muciniphila,1.2,%,1.0-4.0
+2025-06-30,Blood,Glucose (Fasting),74.3,mg/dL,70-100
+2025-06-30,Blood,HbA1c,4.9,%,< 5.7
+2025-06-30,Blood,LDL Cholesterol,116.4,mg/dL,< 100
+2025-06-30,Blood,Vitamin D,26.3,ng/mL,30-100
+2025-06-30,Microbiome,Shannon Diversity Index,3.76,index,3.0-5.0
+2025-06-30,Microbiome,Bacteroidetes/Firmicutes Ratio,0.83,ratio,N/A
+2025-06-30,Microbiome,Akkermansia muciniphila,2.73,%,1.0-4.0
+2025-09-28,Blood,Glucose (Fasting),89.9,mg/dL,70-100
+2025-09-28,Blood,HbA1c,4.9,%,< 5.7
+2025-09-28,Blood,LDL Cholesterol,119.8,mg/dL,< 100
+2025-09-28,Blood,Vitamin D,41.7,ng/mL,30-100
+2025-09-28,Microbiome,Shannon Diversity Index,3.66,index,3.0-5.0
+2025-09-28,Microbiome,Bacteroidetes/Firmicutes Ratio,0.89,ratio,N/A
+2025-09-28,Microbiome,Akkermansia muciniphila,2.78,%,1.0-4.0
+2025-12-27,Blood,Glucose (Fasting),88.5,mg/dL,70-100
+2025-12-27,Blood,HbA1c,5.1,%,< 5.7
+2025-12-27,Blood,LDL Cholesterol,122.6,mg/dL,< 100
+2025-12-27,Blood,Vitamin D,33.3,ng/mL,30-100
+2025-12-27,Microbiome,Shannon Diversity Index,3.9,index,3.0-5.0
+2025-12-27,Microbiome,Bacteroidetes/Firmicutes Ratio,1.17,ratio,N/A
+2025-12-27,Microbiome,Akkermansia muciniphila,2.99,%,1.0-4.0
+2026-03-27,Blood,Glucose (Fasting),80.7,mg/dL,70-100
+2026-03-27,Blood,HbA1c,5.2,%,< 5.7
+2026-03-27,Blood,LDL Cholesterol,89.7,mg/dL,< 100
+2026-03-27,Blood,Vitamin D,25.4,ng/mL,30-100
+2026-03-27,Microbiome,Shannon Diversity Index,3.64,index,3.0-5.0
+2026-03-27,Microbiome,Bacteroidetes/Firmicutes Ratio,0.82,ratio,N/A
+2026-03-27,Microbiome,Akkermansia muciniphila,1.4,%,1.0-4.0
+2026-06-25,Blood,Glucose (Fasting),80.8,mg/dL,70-100
+2026-06-25,Blood,HbA1c,5.0,%,< 5.7
+2026-06-25,Blood,LDL Cholesterol,88.6,mg/dL,< 100
+2026-06-25,Blood,Vitamin D,28.9,ng/mL,30-100
+2026-06-25,Microbiome,Shannon Diversity Index,3.62,index,3.0-5.0
+2026-06-25,Microbiome,Bacteroidetes/Firmicutes Ratio,1.07,ratio,N/A
+2026-06-25,Microbiome,Akkermansia muciniphila,2.61,%,1.0-4.0
+2026-09-23,Blood,Glucose (Fasting),75.7,mg/dL,70-100
+2026-09-23,Blood,HbA1c,4.9,%,< 5.7
+2026-09-23,Blood,LDL Cholesterol,102.7,mg/dL,< 100
+2026-09-23,Blood,Vitamin D,32.6,ng/mL,30-100
+2026-09-23,Microbiome,Shannon Diversity Index,3.66,index,3.0-5.0
+2026-09-23,Microbiome,Bacteroidetes/Firmicutes Ratio,0.82,ratio,N/A
+2026-09-23,Microbiome,Akkermansia muciniphila,1.02,%,1.0-4.0
+2026-12-22,Blood,Glucose (Fasting),80.4,mg/dL,70-100
+2026-12-22,Blood,HbA1c,5.3,%,< 5.7
+2026-12-22,Blood,LDL Cholesterol,96.2,mg/dL,< 100
+2026-12-22,Blood,Vitamin D,21.4,ng/mL,30-100
+2026-12-22,Microbiome,Shannon Diversity Index,4.0,index,3.0-5.0
+2026-12-22,Microbiome,Bacteroidetes/Firmicutes Ratio,0.93,ratio,N/A
+2026-12-22,Microbiome,Akkermansia muciniphila,1.08,%,1.0-4.0
+2027-03-22,Blood,Glucose (Fasting),90.6,mg/dL,70-100
+2027-03-22,Blood,HbA1c,5.0,%,< 5.7
+2027-03-22,Blood,LDL Cholesterol,113.1,mg/dL,< 100
+2027-03-22,Blood,Vitamin D,44.8,ng/mL,30-100
+2027-03-22,Microbiome,Shannon Diversity Index,4.4,index,3.0-5.0
+2027-03-22,Microbiome,Bacteroidetes/Firmicutes Ratio,1.15,ratio,N/A
+2027-03-22,Microbiome,Akkermansia muciniphila,1.33,%,1.0-4.0
+2027-06-20,Blood,Glucose (Fasting),93.7,mg/dL,70-100
+2027-06-20,Blood,HbA1c,5.1,%,< 5.7
+2027-06-20,Blood,LDL Cholesterol,82.7,mg/dL,< 100
+2027-06-20,Blood,Vitamin D,40.0,ng/mL,30-100
+2027-06-20,Microbiome,Shannon Diversity Index,3.86,index,3.0-5.0
+2027-06-20,Microbiome,Bacteroidetes/Firmicutes Ratio,1.16,ratio,N/A
+2027-06-20,Microbiome,Akkermansia muciniphila,1.27,%,1.0-4.0
+2027-09-18,Blood,Glucose (Fasting),74.6,mg/dL,70-100
+2027-09-18,Blood,HbA1c,5.3,%,< 5.7
+2027-09-18,Blood,LDL Cholesterol,92.0,mg/dL,< 100
+2027-09-18,Blood,Vitamin D,24.8,ng/mL,30-100
+2027-09-18,Microbiome,Shannon Diversity Index,4.25,index,3.0-5.0
+2027-09-18,Microbiome,Bacteroidetes/Firmicutes Ratio,0.93,ratio,N/A
+2027-09-18,Microbiome,Akkermansia muciniphila,1.01,%,1.0-4.0
+2027-12-17,Blood,Glucose (Fasting),93.6,mg/dL,70-100
+2027-12-17,Blood,HbA1c,4.9,%,< 5.7
+2027-12-17,Blood,LDL Cholesterol,83.3,mg/dL,< 100
+2027-12-17,Blood,Vitamin D,21.1,ng/mL,30-100
+2027-12-17,Microbiome,Shannon Diversity Index,3.8,index,3.0-5.0
+2027-12-17,Microbiome,Bacteroidetes/Firmicutes Ratio,1.15,ratio,N/A
+2027-12-17,Microbiome,Akkermansia muciniphila,1.08,%,1.0-4.0
+2028-03-16,Blood,Glucose (Fasting),84.5,mg/dL,70-100
+2028-03-16,Blood,HbA1c,4.9,%,< 5.7
+2028-03-16,Blood,LDL Cholesterol,124.6,mg/dL,< 100
+2028-03-16,Blood,Vitamin D,41.4,ng/mL,30-100
+2028-03-16,Microbiome,Shannon Diversity Index,4.31,index,3.0-5.0
+2028-03-16,Microbiome,Bacteroidetes/Firmicutes Ratio,0.94,ratio,N/A
+2028-03-16,Microbiome,Akkermansia muciniphila,2.44,%,1.0-4.0
+2028-06-14,Blood,Glucose (Fasting),93.8,mg/dL,70-100
+2028-06-14,Blood,HbA1c,5.6,%,< 5.7
+2028-06-14,Blood,LDL Cholesterol,129.8,mg/dL,< 100
+2028-06-14,Blood,Vitamin D,38.1,ng/mL,30-100
+2028-06-14,Microbiome,Shannon Diversity Index,4.11,index,3.0-5.0
+2028-06-14,Microbiome,Bacteroidetes/Firmicutes Ratio,1.08,ratio,N/A
+2028-06-14,Microbiome,Akkermansia muciniphila,1.3,%,1.0-4.0
+2028-09-12,Blood,Glucose (Fasting),93.5,mg/dL,70-100
+2028-09-12,Blood,HbA1c,5.5,%,< 5.7
+2028-09-12,Blood,LDL Cholesterol,95.1,mg/dL,< 100
+2028-09-12,Blood,Vitamin D,33.7,ng/mL,30-100
+2028-09-12,Microbiome,Shannon Diversity Index,3.82,index,3.0-5.0
+2028-09-12,Microbiome,Bacteroidetes/Firmicutes Ratio,1.04,ratio,N/A
+2028-09-12,Microbiome,Akkermansia muciniphila,2.66,%,1.0-4.0
+2028-12-11,Blood,Glucose (Fasting),73.9,mg/dL,70-100
+2028-12-11,Blood,HbA1c,4.9,%,< 5.7
+2028-12-11,Blood,LDL Cholesterol,90.3,mg/dL,< 100
+2028-12-11,Blood,Vitamin D,48.3,ng/mL,30-100
+2028-12-11,Microbiome,Shannon Diversity Index,3.8,index,3.0-5.0
+2028-12-11,Microbiome,Bacteroidetes/Firmicutes Ratio,1.05,ratio,N/A
+2028-12-11,Microbiome,Akkermansia muciniphila,2.52,%,1.0-4.0
+2029-03-11,Blood,Glucose (Fasting),91.1,mg/dL,70-100
+2029-03-11,Blood,HbA1c,5.2,%,< 5.7
+2029-03-11,Blood,LDL Cholesterol,114.6,mg/dL,< 100
+2029-03-11,Blood,Vitamin D,31.5,ng/mL,30-100
+2029-03-11,Microbiome,Shannon Diversity Index,4.1,index,3.0-5.0
+2029-03-11,Microbiome,Bacteroidetes/Firmicutes Ratio,0.95,ratio,N/A
+2029-03-11,Microbiome,Akkermansia muciniphila,2.49,%,1.0-4.0
+2029-06-09,Blood,Glucose (Fasting),79.5,mg/dL,70-100
+2029-06-09,Blood,HbA1c,5.6,%,< 5.7
+2029-06-09,Blood,LDL Cholesterol,125.3,mg/dL,< 100
+2029-06-09,Blood,Vitamin D,39.9,ng/mL,30-100
+2029-06-09,Microbiome,Shannon Diversity Index,3.79,index,3.0-5.0
+2029-06-09,Microbiome,Bacteroidetes/Firmicutes Ratio,1.06,ratio,N/A
+2029-06-09,Microbiome,Akkermansia muciniphila,2.09,%,1.0-4.0
+2029-09-07,Blood,Glucose (Fasting),82.8,mg/dL,70-100
+2029-09-07,Blood,HbA1c,5.3,%,< 5.7
+2029-09-07,Blood,LDL Cholesterol,87.3,mg/dL,< 100
+2029-09-07,Blood,Vitamin D,34.0,ng/mL,30-100
+2029-09-07,Microbiome,Shannon Diversity Index,4.48,index,3.0-5.0
+2029-09-07,Microbiome,Bacteroidetes/Firmicutes Ratio,0.92,ratio,N/A
+2029-09-07,Microbiome,Akkermansia muciniphila,1.48,%,1.0-4.0
+2029-12-06,Blood,Glucose (Fasting),85.9,mg/dL,70-100
+2029-12-06,Blood,HbA1c,5.2,%,< 5.7
+2029-12-06,Blood,LDL Cholesterol,92.6,mg/dL,< 100
+2029-12-06,Blood,Vitamin D,27.6,ng/mL,30-100
+2029-12-06,Microbiome,Shannon Diversity Index,3.58,index,3.0-5.0
+2029-12-06,Microbiome,Bacteroidetes/Firmicutes Ratio,1.02,ratio,N/A
+2029-12-06,Microbiome,Akkermansia muciniphila,1.42,%,1.0-4.0
+2030-03-06,Blood,Glucose (Fasting),95.1,mg/dL,70-100
+2030-03-06,Blood,HbA1c,5.2,%,< 5.7
+2030-03-06,Blood,LDL Cholesterol,107.5,mg/dL,< 100
+2030-03-06,Blood,Vitamin D,33.0,ng/mL,30-100
+2030-03-06,Microbiome,Shannon Diversity Index,3.96,index,3.0-5.0
+2030-03-06,Microbiome,Bacteroidetes/Firmicutes Ratio,0.94,ratio,N/A
+2030-03-06,Microbiome,Akkermansia muciniphila,2.67,%,1.0-4.0
+2030-06-04,Blood,Glucose (Fasting),73.7,mg/dL,70-100
+2030-06-04,Blood,HbA1c,5.0,%,< 5.7
+2030-06-04,Blood,LDL Cholesterol,85.6,mg/dL,< 100
+2030-06-04,Blood,Vitamin D,34.0,ng/mL,30-100
+2030-06-04,Microbiome,Shannon Diversity Index,3.86,index,3.0-5.0
+2030-06-04,Microbiome,Bacteroidetes/Firmicutes Ratio,0.91,ratio,N/A
+2030-06-04,Microbiome,Akkermansia muciniphila,1.87,%,1.0-4.0
+2030-09-02,Blood,Glucose (Fasting),72.5,mg/dL,70-100
+2030-09-02,Blood,HbA1c,5.1,%,< 5.7
+2030-09-02,Blood,LDL Cholesterol,95.0,mg/dL,< 100
+2030-09-02,Blood,Vitamin D,35.2,ng/mL,30-100
+2030-09-02,Microbiome,Shannon Diversity Index,4.23,index,3.0-5.0
+2030-09-02,Microbiome,Bacteroidetes/Firmicutes Ratio,1.06,ratio,N/A
+2030-09-02,Microbiome,Akkermansia muciniphila,2.75,%,1.0-4.0
+2030-12-01,Blood,Glucose (Fasting),83.3,mg/dL,70-100
+2030-12-01,Blood,HbA1c,4.8,%,< 5.7
+2030-12-01,Blood,LDL Cholesterol,80.1,mg/dL,< 100
+2030-12-01,Blood,Vitamin D,32.1,ng/mL,30-100
+2030-12-01,Microbiome,Shannon Diversity Index,4.47,index,3.0-5.0
+2030-12-01,Microbiome,Bacteroidetes/Firmicutes Ratio,1.16,ratio,N/A
+2030-12-01,Microbiome,Akkermansia muciniphila,1.02,%,1.0-4.0

@@ -83,6 +83,12 @@ NHANES_PRIORS: Dict[str, Tuple] = {
     "prevalentHyp":              (  0.45, 0.497, 0,    1),
     "diabetes":                  (  0.11, 0.31,  0,    1),
     "currentSmoker":             (  0.14, 0.35,  0,    1),
+    "gravity":                   (1.015, 0.005, 1.000, 1.035),
+    "ph":                        (6.0, 1.0, 4.5, 8.0),
+    "osmo":                      (600, 200, 50, 1200),
+    "cond":                      (20.0, 5.0, 5.0, 40.0),
+    "urea":                      (300, 100, 50, 800),
+    "calc":                      (3.5, 2.0, 0.5, 15.0),
 }
 
 BINARY_FEATURES = {"prevalentHyp", "diabetes", "currentSmoker"}
@@ -94,6 +100,12 @@ CARDIAC_FEATURES = [
 DIABETES_FEATURES = [
     "age", "bmi", "glucose", "sysBP", "diaBP", "totChol",
     "HDLChol", "sleep_hours", "physical_activity_met", "sodium_mg_per_day",
+]
+KIDNEY_FEATURES = [
+    "gravity", "ph", "osmo", "cond", "urea", "calc"
+]
+RESPIRATORY_FEATURES = [
+    "age", "bmi", "currentSmoker", "cigarettes_per_day"  # Proxy features for testing
 ]
 
 
@@ -117,6 +129,12 @@ class PatientProfile:
     prevalentHyp:            float = 1.0
     diabetes:                float = 0.0
     currentSmoker:           float = 0.0
+    gravity:                 float = 1.015
+    ph:                      float = 6.0
+    osmo:                    float = 600.0
+    cond:                    float = 20.0
+    urea:                    float = 300.0
+    calc:                    float = 3.5
 
     @classmethod
     def from_dict(cls, d: dict) -> "PatientProfile":
@@ -136,7 +154,7 @@ class Scenario:
 
 # ── Module-level delta functions (picklable) ─────────────────────────────────
 def _d_add(vals, offset):
-    return [v + offset for v in vals]
+    return [max(0.001, v + offset) for v in vals]
 
 def _d_cap(vals, cap):
     return [min(v, cap) for v in vals]
@@ -213,6 +231,16 @@ def _build_scenarios() -> List[Scenario]:
                      "totChol":            partial(_d_add, offset=12.0),
                      "HDLChol":            partial(_d_add, offset=-5.0),
                  }),
+
+        Scenario("Aggressive Hydration Protocol",
+                 "Increased fluid intake targeting kidney stone prophylaxis.",
+                 "#3498db", {
+                     "gravity":            partial(_d_cap, cap=1.005),
+                     "osmo":               partial(_d_add, offset=-150.0),
+                     "cond":               partial(_d_add, offset=-5.0),
+                     "urea":               partial(_d_add, offset=-80.0),
+                     "calc":               partial(_d_add, offset=-1.5),
+                 }),
     ]
 
 
@@ -258,6 +286,23 @@ class _LogisticScorer:
         "_intercept":           -6.5,
     }
 
+    _KIDNEY_COEFS = {
+        "gravity":               2.5,
+        "osmo":                  0.002,
+        "cond":                  0.03,
+        "urea":                  0.004,
+        "calc":                  0.15,
+        "_intercept":           -5.0,
+    }
+
+    _RESPIRATORY_COEFS = {
+        "age":                   0.03,
+        "currentSmoker":         0.4,
+        "cigarettes_per_day":    0.02,
+        "bmi":                   0.01,
+        "_intercept":           -6.0,
+    }
+
     def __init__(self, coefs: dict, features: List[str]):
         self._coefs    = coefs
         self._features = features
@@ -285,8 +330,10 @@ class _LogisticScorer:
         ]
 
 
-_CARDIAC_SCORER  = _LogisticScorer(_LogisticScorer._CARDIAC_COEFS,  CARDIAC_FEATURES)
-_DIABETES_SCORER = _LogisticScorer(_LogisticScorer._DIABETES_COEFS, DIABETES_FEATURES)
+_CARDIAC_SCORER     = _LogisticScorer(_LogisticScorer._CARDIAC_COEFS,     CARDIAC_FEATURES)
+_DIABETES_SCORER    = _LogisticScorer(_LogisticScorer._DIABETES_COEFS,    DIABETES_FEATURES)
+_KIDNEY_SCORER      = _LogisticScorer(_LogisticScorer._KIDNEY_COEFS,      KIDNEY_FEATURES)
+_RESPIRATORY_SCORER = _LogisticScorer(_LogisticScorer._RESPIRATORY_COEFS, RESPIRATORY_FEATURES)
 
 
 # ── Cohort generation ─────────────────────────────────────────────────────────
@@ -324,13 +371,15 @@ def _score_cohort(model, cohort: dict, features: List[str]) -> list:
     if model is None:
         return []
 
-    # Real sklearn model: expects a 2-D array
     if hasattr(model, "predict_proba") or hasattr(model, "predict"):
         if _HAS_NUMPY:
-            X = np.column_stack([cohort[f] for f in features]).astype(float)
-            if hasattr(model, "predict_proba"):
-                return list(model.predict_proba(X)[:, 1])
-            return list(model.predict(X).astype(float))
+            try:
+                X = np.column_stack([cohort[f] for f in features]).astype(float)
+                if hasattr(model, "predict_proba"):
+                    return list(model.predict_proba(X)[:, 1])
+                return list(model.predict(X).astype(float))
+            except:
+                pass # text models or dimension mismatches fallback below
         else:
             # No numpy → sklearn won't work; fall through to built-in scorer
             pass
@@ -338,7 +387,11 @@ def _score_cohort(model, cohort: dict, features: List[str]) -> list:
     # Built-in logistic scorer
     if features == CARDIAC_FEATURES:
         return _CARDIAC_SCORER.score_cohort(cohort)
-    return _DIABETES_SCORER.score_cohort(cohort)
+    elif features == DIABETES_FEATURES:
+        return _DIABETES_SCORER.score_cohort(cohort)
+    elif features == KIDNEY_FEATURES:
+        return _KIDNEY_SCORER.score_cohort(cohort)
+    return _RESPIRATORY_SCORER.score_cohort(cohort)
 
 
 # ── Main engine ───────────────────────────────────────────────────────────────
@@ -351,28 +404,34 @@ class WhatIfEngine:
     Pickle-safe.
     """
 
-    VERSION = "3.0.0"   # zero-dependency rewrite
+    VERSION = "3.1.0"   # Added kidney & respiratory to ecosystem
 
     def __init__(
         self,
-        priors:            Dict[str, tuple] = None,
-        scenarios:         List[Scenario]   = None,
-        cardiac_features:  List[str]        = None,
-        diabetes_features: List[str]        = None,
+        priors:                Dict[str, tuple] = None,
+        scenarios:             List[Scenario]   = None,
+        cardiac_features:      List[str]        = None,
+        diabetes_features:     List[str]        = None,
+        kidney_features:       List[str]        = None,
+        respiratory_features:  List[str]        = None,
     ):
-        self.priors            = priors            or NHANES_PRIORS
-        self.scenarios         = scenarios         or SCENARIOS
-        self.cardiac_features  = cardiac_features  or CARDIAC_FEATURES
-        self.diabetes_features = diabetes_features or DIABETES_FEATURES
+        self.priors               = priors               or NHANES_PRIORS
+        self.scenarios            = scenarios            or SCENARIOS
+        self.cardiac_features     = cardiac_features     or CARDIAC_FEATURES
+        self.diabetes_features    = diabetes_features    or DIABETES_FEATURES
+        self.kidney_features      = kidney_features      or KIDNEY_FEATURES
+        self.respiratory_features = respiratory_features or RESPIRATORY_FEATURES
 
     def run(
         self,
-        patient_data:     dict,
-        cardiac_model     = None,
-        diabetes_model    = None,
-        n:                int  = 5_000,
-        seed:             int  = 42,
-        trajectory_weeks: int  = 24,
+        patient_data:      dict,
+        cardiac_model      = None,
+        diabetes_model     = None,
+        kidney_model       = None,
+        respiratory_model  = None,
+        n:                 int  = 5_000,
+        seed:              int  = 42,
+        trajectory_weeks:  int  = 24,
     ) -> dict:
         """Full Monte Carlo simulation pipeline. Returns a JSON-serialisable dict."""
         profile  = PatientProfile.from_dict(patient_data)
@@ -381,17 +440,23 @@ class WhatIfEngine:
         # Use the built-in scorer when no real model is supplied
         c_model = cardiac_model   # None → built-in scorer used in _score_cohort
         d_model = diabetes_model
+        k_model = kidney_model
+        r_model = respiratory_model
 
         scenario_results = []
         base_c: Optional[list] = None
         base_d: Optional[list] = None
+        base_k: Optional[list] = None
+        base_r: Optional[list] = None
 
         for sc in self.scenarios:
             cohort = _apply_scenario(baseline, sc.deltas)
 
             for risk_type, model, features in [
-                ("cardiac",  c_model, self.cardiac_features),
-                ("diabetes", d_model, self.diabetes_features),
+                ("cardiac",     c_model, self.cardiac_features),
+                ("diabetes",    d_model, self.diabetes_features),
+                ("kidney",      k_model, self.kidney_features),
+                ("respiratory", r_model, self.respiratory_features),
             ]:
                 try:
                     probs = _score_cohort(model, cohort, features)
@@ -409,10 +474,14 @@ class WhatIfEngine:
                 if sc.name == "Current Trajectory":
                     if risk_type == "cardiac":
                         base_c = probs
-                    else:
+                    elif risk_type == "diabetes":
                         base_d = probs
+                    elif risk_type == "kidney":
+                        base_k = probs
+                    else:
+                        base_r = probs
 
-                base_probs = base_c if risk_type == "cardiac" else base_d
+                base_probs = base_c if risk_type == "cardiac" else base_d if risk_type == "diabetes" else base_k if risk_type == "kidney" else base_r
                 base_mean  = _mean(base_probs) if base_probs else 0.0
                 prob_drop  = sum(1 for p in probs if p < (base_mean - 0.05)) / len(probs) if probs else 0.0
 
@@ -435,13 +504,20 @@ class WhatIfEngine:
             n_weeks=trajectory_weeks, seed=seed,
         )
 
-        tornado_c = self._sensitivity(baseline, c_model,  self.cardiac_features,  n)
+        tornado_c = self._sensitivity(baseline, c_model, self.cardiac_features, n)
         tornado_d = self._sensitivity(baseline, d_model, self.diabetes_features, n)
+        tornado_k = self._sensitivity(baseline, k_model, self.kidney_features, n)
+        tornado_r = self._sensitivity(baseline, r_model, self.respiratory_features, n)
 
         return {
             "scenarios":           scenario_results,
             "trajectory":          trajectory,
-            "feature_sensitivity": {"cardiac": tornado_c, "diabetes": tornado_d},
+            "feature_sensitivity": {
+                "cardiac": tornado_c, 
+                "diabetes": tornado_d,
+                "kidney": tornado_k,
+                "respiratory": tornado_r
+            },
             "summary":             self._summary(scenario_results),
         }
 
@@ -476,9 +552,7 @@ class WhatIfEngine:
                             o + frac * (t - o)
                             for o, t in zip(orig, target)
                         ] if not _HAS_NUMPY else (
-                            orig + frac * (orig + frac * (
-                                (np.clip(fn(orig), lo, hi)) - orig
-                            ))
+                            orig + frac * (np.clip(fn(orig), lo, hi) - orig)
                         )
 
                 try:
@@ -537,12 +611,16 @@ class WhatIfEngine:
 
         bc = get("Current Trajectory", "cardiac")
         bd = get("Current Trajectory", "diabetes")
+        bk = get("Current Trajectory", "kidney")
+        br = get("Current Trajectory", "respiratory")
         if not bc or not bd:
             return "Simulation complete."
 
         lines = [
-            f"Baseline — Cardiac: {bc['mean_risk']:.1%} [{bc['p05']:.1%}–{bc['p95']:.1%}] | "
-            f"Diabetes: {bd['mean_risk']:.1%} [{bd['p05']:.1%}–{bd['p95']:.1%}]"
+            f"Baseline — Cardiac: {bc['mean_risk']:.1%} | "
+            f"Diabetes: {bd['mean_risk']:.1%} | "
+            f"Kidney: {(bk['mean_risk'] if bk else 0):.1%} | "
+            f"Resp: {(br['mean_risk'] if br else 0):.1%}"
         ]
         seen: set = set()
         for r in results:
@@ -551,12 +629,10 @@ class WhatIfEngine:
                 continue
             seen.add(sc)
             rc = get(sc, "cardiac")
-            rd = get(sc, "diabetes")
-            if rc and rd:
+            rk = get(sc, "kidney")
+            if rc and rk:
                 lines.append(
-                    f"• {sc}: Cardiac {rc['mean_risk']:.1%} "
-                    f"({rc['mean_risk'] - bc['mean_risk']:+.1%}), "
-                    f"Diabetes {rd['mean_risk']:.1%} "
-                    f"({rd['mean_risk'] - bd['mean_risk']:+.1%})"
+                    f"• {sc}: Cardiac {rc['mean_risk']:.1%} ({rc['mean_risk'] - bc['mean_risk']:+.1%}), "
+                    f"Kidney {rk['mean_risk']:.1%} ({rk['mean_risk'] - (bk['mean_risk'] if bk else 0):+.1%})"
                 )
         return " | ".join(lines)
