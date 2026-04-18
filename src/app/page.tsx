@@ -142,6 +142,23 @@ function Page() {
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const [lastHovered, setLastHovered] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isHoveringBody, setIsHoveringBody] = useState(false);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setMousePos({ x, y });
+
+    // Calculate tilt: relative to container center
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const tiltX = (y - centerY) / (rect.height / 2) * 12; // tilt around X axis depends on Y position
+    const tiltY = (x - centerX) / (rect.width / 2) * -12; // tilt around Y axis depends on X position
+    setTilt({ x: tiltX, y: tiltY });
+  };
 
   const handleMouseEnter = (id: string) => {
     setHoveredRegion(id);
@@ -224,7 +241,7 @@ function Page() {
     </svg>
   );
 
-  const renderThangkaIcon = (theme: any, sizeClass = "w-32 h-32", forceBlend?: string) => {
+  const renderThangkaIcon = (theme: any, sizeClass = "w-32 h-32", forceBlend?: string, offset?: { x: number, y: number }) => {
     if (!theme) return null;
 
     const isCropped = !!theme.cropSide;
@@ -247,7 +264,10 @@ function Page() {
           style={{
             mixBlendMode: blendMode as any,
             filter: isJpg ? 'contrast(1.1) brightness(1.1)' : 'contrast(1.6) brightness(1.2)',
-            transform: theme.flip ? 'scaleX(-1)' : 'none',
+            transform: `
+              ${theme.flip ? 'scaleX(-1)' : 'none'} 
+              ${offset ? `translate(${offset.x}px, ${offset.y}px)` : ''}
+            `,
             position: 'absolute',
             width: isCropped ? '200%' : '100%',
             maxWidth: 'none',
@@ -407,30 +427,124 @@ function Page() {
         </div>
       </div>
 
-      <div style={{ position: "fixed", top: overlayConfig.top, left: overlayConfig.left, transform: overlayConfig.transform, width: overlayConfig.width, height: overlayConfig.height, zIndex: overlayConfig.zIndex }} className="relative drop-shadow-2xl">
+      <div 
+        style={{ 
+          position: "fixed", 
+          top: overlayConfig.top, 
+          left: overlayConfig.left, 
+          transform: overlayConfig.transform, 
+          width: overlayConfig.width, 
+          height: overlayConfig.height, 
+          zIndex: overlayConfig.zIndex 
+        }} 
+        className="relative drop-shadow-2xl cursor-none"
+        onMouseMove={handleMouseMove}
+        onMouseEnter={() => setIsHoveringBody(true)}
+        onMouseLeave={() => {
+          setIsHoveringBody(false);
+          setHoveredRegion(null);
+        }}
+      >
         <img src={overlayConfig.src} alt="Human Overlay" style={{ width: "100%", height: "100%", objectFit: "contain" }} className="pointer-events-none" />
+        
+        {/* HIT AREAS */}
         {regions.map((region) => (
-          <div key={region.id} onMouseEnter={() => handleMouseEnter(region.id)} onMouseLeave={handleMouseLeave} onClick={() => region.isSpecial && setSelectedRegion(region.id)} className="absolute cursor-pointer border border-transparent rounded-lg hover:border-white/40 hover:bg-white/5 transition-colors duration-200 z-[60] flex items-center justify-center overflow-visible" style={region.overlayStyle}>
-            {hoveredRegion === region.id && region.isSpecial && organThemes[region.id] && (
-              <div className="pointer-events-none animate-heart-pop relative">
-                <div className="absolute inset-0 bg-white/10 blur-2xl rounded-full scale-110 animate-pulse" />
-                {renderThangkaIcon(organThemes[region.id], "w-40 h-40", organThemes[region.id].icon.endsWith('.jpg') ? 'screen' : undefined)}
-              </div>
-            )}
-          </div>
+          <div 
+            key={region.id} 
+            onMouseEnter={() => handleMouseEnter(region.id)} 
+            onMouseLeave={handleMouseLeave} 
+            onClick={() => region.isSpecial && setSelectedRegion(region.id)} 
+            className="absolute cursor-pointer border border-transparent rounded-lg hover:bg-white/5 transition-colors duration-200 z-[60]" 
+            style={region.overlayStyle}
+          />
         ))}
+
+        {/* DYNAMIC MAGNIFYING LENS */}
+        {isHoveringBody && (
+          <div 
+            className="pointer-events-none absolute z-[100] transition-opacity duration-300"
+            style={{ 
+              left: `${mousePos.x}px`, 
+              top: `${mousePos.y}px`,
+              opacity: isHoveringBody ? 1 : 0,
+              transform: `translate(-50%, -50%) perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+            }}
+          >
+            <div className="lens-frame">
+              {/* Inner Glass & Glares */}
+              <div className="lens-glass" />
+              <div className="lens-glare" />
+              <div className="lens-glare-secondary" />
+              
+              {/* Metallic Glints */}
+              <div className="lens-glint top-[20%] left-[25%]" />
+              <div className="lens-glint top-[15%] left-[20%] scale-50 opacity-50" />
+              
+              {/* Magnified Content Reveal */}
+              <div className="lens-magnified-content flex items-center justify-center">
+                {hoveredRegion && organThemes[hoveredRegion] ? (
+                  (() => {
+                    const region = regions.find(r => r.id === hoveredRegion);
+                    if (!region) return null;
+
+                    const containerWidth = 450;
+                    const containerHeight = 600; 
+                    
+                    const regionLeft = parseFloat(region.overlayStyle.left) / 100 * containerWidth;
+                    const regionTop = parseFloat(region.overlayStyle.top) / 100 * containerHeight;
+                    const regionWidth = parseFloat(region.overlayStyle.width) / 100 * containerWidth;
+                    const regionHeight = parseFloat(region.overlayStyle.height) / 100 * containerHeight;
+                    
+                    const centerX = regionLeft + regionWidth / 2;
+                    const centerY = regionTop + regionHeight / 2;
+                    
+                    const offsetX = (centerX - mousePos.x) * 1.6;
+                    const offsetY = (centerY - mousePos.y) * 1.6;
+
+                    return renderThangkaIcon(
+                      organThemes[hoveredRegion], 
+                      "w-16 h-16", 
+                      organThemes[hoveredRegion].icon.endsWith('.jpg') ? 'screen' : undefined,
+                      { x: offsetX, y: offsetY }
+                    );
+                  })()
+                ) : (
+                  <div className="w-full h-full bg-white/5 backdrop-blur-[2px]" />
+                )}
+              </div>
+              
+              {/* Advanced Chromatic Aberration Layers */}
+              <div className="absolute inset-0 rounded-full border border-cyan-400/20 mix-blend-screen scale-[1.01] blur-[1px]" />
+              <div className="absolute inset-0 rounded-full border border-red-400/20 mix-blend-screen scale-[0.99] blur-[1px]" />
+              <div className="absolute inset-0 rounded-full border border-amber-300/10 mix-blend-overlay scale-[1.03]" />
+            </div>
+            
+            {/* Exterior Glow Aura */}
+            <div className="absolute inset-0 bg-amber-200/5 blur-3xl rounded-full -z-10" />
+            
+            {/* Premium Antique Handle */}
+            <div className="absolute top-[85%] left-1/2 -translate-x-1/2 w-6 h-20 lens-handle flex flex-col items-center origin-top rotate-[12deg]">
+              {/* Golden Ferrule (Neck) */}
+              <div className="w-5 h-5 lens-handle-ferrule rounded-t-sm" />
+              {/* Wooden Grip */}
+              <div className="w-4 h-16 lens-handle-grip rounded-b-xl" />
+              {/* Bottom Cap */}
+              <div className="absolute bottom-0 w-3 h-1.5 bg-gradient-to-r from-yellow-700 via-yellow-400 to-yellow-800 rounded-b-full shadow-inner" />
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedTheme && (
         <div className={`fixed inset-0 z-[200] flex items-center justify-center p-4 transition-all duration-500 bg-black/70 backdrop-blur-md ${selectedRegion ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
-          <div className={`relative w-full max-w-2xl bg-zinc-900/98 border ${selectedTheme.border} rounded-3xl overflow-hidden ${selectedTheme.glow} transition-all duration-500 delay-100 ${selectedRegion ? "translate-y-0 scale-100" : "translate-y-8 scale-95"}`}>
+          <div className={`relative w-full max-w-xl bg-zinc-900/98 border ${selectedTheme.border} rounded-3xl overflow-hidden ${selectedTheme.glow} transition-all duration-500 delay-100 ${selectedRegion ? "translate-y-0 scale-100" : "translate-y-8 scale-95"}`}>
             <div className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-${selectedTheme.color}-500 to-transparent opacity-80`} />
             <div className="p-8">
               <div className="flex justify-between items-start mb-8">
                 <div className="flex items-center gap-6">
                   <div className={`p-4 ${selectedTheme.bg} rounded-3xl border ${selectedTheme.border} relative group flex items-center justify-center`}>
                     <div className="absolute inset-0 bg-white/5 blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-                    {renderThangkaIcon(selectedTheme, "w-20 h-20", selectedTheme.icon.endsWith('.jpg') ? 'screen' : undefined)}
+                    {renderThangkaIcon(selectedTheme, "w-12 h-12", selectedTheme.icon.endsWith('.jpg') ? 'screen' : undefined)}
                   </div>
                   <div>
                     <h2 className="text-3xl font-bold text-white tracking-tight">{selectedTheme.title}</h2>
@@ -465,7 +579,7 @@ function Page() {
                 </div>
                 <p className="text-zinc-300 text-sm leading-relaxed font-light italic"> "{selectedTheme.description}" </p>
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  {renderThangkaIcon({ ...selectedTheme, colorTheme: 'grayscale' }, "w-24 h-24")}
+                  {renderThangkaIcon({ ...selectedTheme, colorTheme: 'grayscale' }, "w-12 h-12")}
                 </div>
               </div>
             </div>
@@ -641,7 +755,7 @@ function Page() {
                     <div className="flex items-center justify-between pb-3" style={{ borderBottom: `1px solid ${sc.divider}` }}>
                       <div className="flex items-center gap-3">
                         <div className="p-1.5 rounded-lg shadow-inner" style={{ backgroundColor: sc.iconBg, border: `1px solid ${sc.iconBorder}` }}>
-                          {renderThangkaIcon(theme, "w-10 h-10", theme.icon.endsWith('.jpg') ? 'multiply' : 'screen')}
+                          {renderThangkaIcon(theme, "w-8 h-8", theme.icon.endsWith('.jpg') ? 'multiply' : 'screen')}
                         </div>
                         <div>
                           <h2 className="text-xl font-bold tracking-tight leading-none" style={{ color: sc.textColor }}>{activeRegionData.name}</h2>
