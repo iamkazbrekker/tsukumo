@@ -49,6 +49,9 @@ __pycache__/
 public/synthetic_iot_data/wearable_continuous.csv
 public/synthetic_iot_data/training_5years.csv
 public/synthetic_iot_data/streaming_1year.csv
+public/wearable_continuous.csv
+public/training_5years.csv
+public/streaming_1year.csv
 
 # Temporary IoT Ingestion Files
 drive_incoming/
