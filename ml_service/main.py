@@ -12,6 +12,18 @@ from pydantic import BaseModel
 import pandas as pd
 import numpy as np
 from tenacity import retry, stop_after_attempt, wait_fixed
+import math
+import requests
+from doctors_db import DOCTORS
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371  # radius of Earth in kilometers
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
 
 # Configure logging for "Internal Monologue"
 logging.basicConfig(level=logging.INFO)
@@ -77,10 +89,13 @@ class VitalsInput(BaseModel):
 class BookingConfirmation(BaseModel):
     booking_id: str
     preferred_time_window: str
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    urgency: Optional[str] = "Medium"
 
 # --- AGENT TOOLS ---
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-async def book_healer_appointment_api(specialty: str, urgency: str, preferred_time_window: str, context_summary: str):
+async def book_healer_appointment_api(specialty: str, urgency: str, preferred_time_window: str, context_summary: str, user_lat: Optional[float] = None, user_lon: Optional[float] = None):
     """
     Simulates a connection to a healthcare provider API (like Practo).
     """
@@ -95,16 +110,44 @@ async def book_healer_appointment_api(specialty: str, urgency: str, preferred_ti
         raise Exception("API Timeout")
 
     booking_id = f"TSUKUMO-{np.random.randint(1000, 9999)}"
-    healers = {
-        "Heart": "Dr. Arisatya (Senior Cardiologist)",
-        "Lung": "Dr. Vayu (Pulmonologist)",
-        "Mental": "Dr. Prana (Cognitive Counselor)",
-        "Kidney": "Dr. Varuna (Renal Specialist)"
-    }
     
-    healer_name = healers.get(specialty, "Dr. Charaka")
-    appointment_time = datetime.now() + timedelta(days=1)
+    best_doctor = None
+    best_score = float('inf')
+    best_dist = 0.0
     
+    search_lat = user_lat if user_lat is not None else 12.9716
+    search_lon = user_lon if user_lon is not None else 77.5946
+    
+    for doc in DOCTORS:
+        if doc["specialty"] != specialty or not doc["is_available"]:
+            continue
+            
+        if urgency == "High" and not doc["priority_handling_capable"]:
+            score_penalty = 1000
+        else:
+            score_penalty = 0
+            
+        doc_dist = haversine(search_lat, search_lon, doc["lat"], doc["lon"])
+        wait_penalty = doc["patients_in_queue"] * 2.0
+        score = doc_dist + wait_penalty + score_penalty
+        
+        if score < best_score:
+            best_score = score
+            best_doctor = doc
+            best_dist = doc_dist
+
+    if best_doctor:
+        healer_name = best_doctor["name"]
+        wait_mins = best_doctor["patients_in_queue"] * 15
+        appointment_time = datetime.now() + timedelta(minutes=wait_mins + 30)
+        report_text = f"Agent Analysis: {healer_name} selected. Geographic proximity: ~{best_dist:.1f}km. Priority routing applied for {urgency} urgency."
+        logger.info(f"[Agent Tool] Dispatched to {healer_name} (Distance: ~{best_dist:.1f}km, Score: {best_score:.1f}, Due to urgency: {urgency})")
+    else:
+        healer_name = "Dr. Charaka (Fallback)"
+        appointment_time = datetime.now() + timedelta(days=1)
+        report_text = "Agent Analysis: No matching available specialist found. Default internal physician assigned."
+        logger.info(f"[Agent Tool] No matching available doctor found. Dispatched to Fallback.")
+
     # 1. Generate ICS Calendar Event
     dt_format = "%Y%m%dT%H%M%S"
     start_str = appointment_time.strftime(dt_format)
@@ -159,6 +202,7 @@ Ticket Reference: TKT-{booking_id}
         "specialty": specialty,
         "urgency": urgency,
         "context": context_summary,
+        "report": report_text,
         "calendar_ics": ics_calendar,
         "ticket_details": ticket_payload,
         "mock_email_sent": simulated_email
@@ -326,10 +370,33 @@ async def confirm_booking(confirmation: BookingConfirmation):
     try:
         result = await book_healer_appointment_api(
             specialty=specialty,
-            urgency="High", 
+            urgency=confirmation.urgency or "Medium", 
             preferred_time_window=confirmation.preferred_time_window,
-            context_summary="User confirmed booking via Tsukumo Dashboard."
+            context_summary="User confirmed booking via Tsukumo Dashboard.",
+            user_lat=confirmation.lat,
+            user_lon=confirmation.lon
         )
+        
+        # SEND PHONE PUSH NOTIFICATION VIA NTFY.SH
+        try:
+            # We use a static topic name for testing, but in a real app this would be patient-specific
+            topic = "tsukumo_patient_alerts"
+            message = f"Appointment Confirmed!\nBooking ID: {result['booking_id']}\nHealer: {result['healer_name']}\nTime: {result['time']}\nSpecialty: {result['specialty']}"
+            
+            requests.post(f"https://ntfy.sh/{topic}", 
+                data=message.encode(encoding='utf-8'),
+                headers={
+                    "Title": "Tsukumo: Doctor Appointment",
+                    "Priority": "urgent",
+                    "Tags": "rotating_light,hospital"
+                }
+            )
+            result['phone_message_sent'] = True
+            result['ntfy_topic'] = topic
+        except Exception as push_err:
+            logger.error(f"Failed to send push notification: {push_err}")
+            result['phone_message_sent'] = False
+            
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Booking failed after retries: {str(e)}")
