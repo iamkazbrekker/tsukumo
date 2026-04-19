@@ -8,12 +8,12 @@ const organThemes: Record<string, any> = {
     id: "heart",
     title: "Cardiac Dashboard",
     subtitle: "Sacred Rhythm (Fire Element)",
-    color: "red",
+    color: "amber",
     icon: "/assets/thangka/heart.png",
-    accent: "text-red-500",
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
-    glow: "shadow-[0_0_50px_rgba(220,38,38,0.2)]",
+    accent: "text-amber-500",
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/30",
+    glow: "shadow-[0_0_50px_rgba(245,158,11,0.2)]",
     stats: [
       { label: "Heart Rate", value: "72", unit: "BPM", status: "LIVE" },
       { label: "Blood Pressure", value: "120/80", unit: "mmHg", status: "STABLE" }
@@ -201,7 +201,6 @@ function Page() {
   const [finalBookingData, setFinalBookingData] = useState<any>(null);
   const [lastAutoPoppedReason, setLastAutoPoppedReason] = useState<string | null>(null);
   const [stressLevel, setStressLevel] = useState(0.1);
-  const [compositeRisk, setCompositeRisk] = useState(0);
 
   // --- COGNITIVE HEALTH TWIN STATE ---
   const [showCHTModal, setShowCHTModal] = useState(false);
@@ -210,7 +209,12 @@ function Page() {
   const [chtLoading, setChtLoading] = useState(false);
   const [phmData, setPhmData] = useState<any>(null);
 
-  const isEmergency = compositeRisk > 0.5 || preppedBooking?.urgency === 'High';
+  const [compositeRisk, setCompositeRisk] = useState(0);
+  const [emergencyOverride, setEmergencyOverride] = useState(false);
+  const [emergencyTimeLeft, setEmergencyTimeLeft] = useState(0);
+
+  // EMERGENCY IS NOW PURELY MANUAL. NO AUTOMATIC RED PULSE.
+  const isEmergency = !!emergencyOverride;
 
   const handleHospitalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,120 +259,216 @@ function Page() {
 
   useEffect(() => {
     const fetchDriveStream = async () => {
-      try {
-        const res = await fetch('/api/drive-monitor');
-        const data = await res.json();
-        
-        if (data && !data.error) {
-          if (data.source_file === lastSourceFileRef.current) return; 
-          lastSourceFileRef.current = data.source_file;
+      // ── UNIFIED DATA GATEWAY ──
+      // Both normal streaming AND emergency simulation flow through
+      // the exact same processing pipeline below. No module is bypassed.
+      
+      let data: any = null;
 
-          // Update Agent States
-          if (data.prepped_booking) {
-            setPreppedBooking(data.prepped_booking);
-            // Automatically prompt if high urgency and not already handled for this specific reason
-            if (data.prepped_booking.urgency === 'High' && 
-                bookingStatus === 'idle' && 
-                data.prepped_booking.reason !== lastAutoPoppedReason
-            ) {
-                setShowBookingModal(true);
-                setLastAutoPoppedReason(data.prepped_booking.reason);
+      if (emergencyOverride) {
+        // ── SIMULATED CARDIAC ARREST DATA ──
+        // Block all real incoming data. Synthesize critical vitals.
+        const simHR = 155 + Math.floor(Math.random() * 25);
+        const simBP = 190 + Math.floor(Math.random() * 15);
+        const simSpo2 = 80 + Math.floor(Math.random() * 6);
+        const simRR = 30 + Math.floor(Math.random() * 8);
+
+        data = {
+          source_file: `EMERGENCY_SIM_${Date.now()}.json`,
+          patient_data: {
+            age: 42,
+            heartRate: simHR,
+            sysBP: simBP,
+            diaBP: 118,
+            resp_rate: simRR,
+            spo2: simSpo2,
+            glucose: 245,
+            activity: 0.0,
+            activityMETs: 1.0,
+            bmi: 26.4,
+            totChol: 280,
+            HDLChol: 32,
+          },
+          predictions: {
+            cardiac_arrest_risk: 1,
+            respiratory_risk: 1,
+            burnout_risk: 1,
+            kidney_stones_risk: 0,
+            diabetes_risk: 1
+          },
+          composite_risk: 0.95,
+          stress_level: 0.9,
+          prepped_booking: {
+            specialty: "Critical Care — Cardiology",
+            urgency: "High",
+            reason: `CRITICAL: Cardiac arrest detected (HR: ${simHR} BPM, SpO2: ${simSpo2}%). Agentic dispatch initiated.`,
+            recommended_window: "IMMEDIATE"
+          },
+          internal_monologue: [
+            "PROTOCOL RED: Life support sequence initialized.",
+            `Anomaly detected — myocardial rhythm at ${simHR} BPM.`,
+            `Oxygen saturation dropping critically (${simSpo2}%).`,
+            `Blood pressure spike: ${simBP}/118 mmHg.`,
+            "Initiating autonomous clinical dispatch...",
+            "Agent 'Vajra' taking command of telemetry node."
+          ],
+          cht: {
+            health_tier: 5,
+            tier_color: "#dc2626",
+            analysis: {
+              severity: "CRITICAL",
+              primary_concern: "Acute Myocardial Infarction (Simulated)",
+              primary_suggestion: "Deploying Vajra Clinical Agent to local triage unit.",
+              narrative: `EMERGENCY OVERRIDE ACTIVE. All automatic monitoring has been superseded by Agentic AI Control. Patient exhibits classic signs of acute heart failure — HR ${simHR}, SpO2 ${simSpo2}%, BP ${simBP}/118. Autonomous dispatch is currently being simulated in the Tsukumo Nexus.`
+            },
+            retrieval: {
+              affected_systems: ["Cardiovascular", "Respiratory", "Nervous System", "Metabolic"],
+              at_risk_diseases: [
+                { label: "Cardiac Arrest", level: "CRITICAL", contributing_biomarkers: ["bm_heart_rate", "bm_sys_bp", "bm_spo2"] },
+                { label: "Respiratory Failure", level: "HIGH", contributing_biomarkers: ["bm_spo2", "bm_resp_rate"] },
+                { label: "Hyperglycemic Crisis", level: "ELEVATED", contributing_biomarkers: ["bm_glucose"] }
+              ]
             }
+          },
+          phm: {
+            health_tier: 5,
+            tier_label: "Critical",
+            tier_color: "#dc2626",
+            rul_weeks: 0,
+            rul_label: "Immediate Intervention Required"
           }
-          if (data.internal_monologue) {
-            setInternalMonologue(data.internal_monologue);
-          }
-          if (data.stress_level !== undefined) {
-            setStressLevel(data.stress_level);
-          }
-          if (data.composite_risk !== undefined) {
-            setCompositeRisk(data.composite_risk);
-          }
-          // Store PHM and CHT data from the enhanced vitals response
-          if (data.phm) {
-            setPhmData(data.phm);
-          }
-          if (data.cht) {
-            setChtData(data.cht);
-          }
-
-          const preds = data.predictions || {};
-          setLatestInsights(preds);
-          setLatestVitals(data.patient_data);
-
-          // Add to Live Neural Feed
-          const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          const logEntry = {
-            id: Date.now(),
-            time: timestamp,
-            cardiac: preds.cardiac_arrest_risk === 1 ? '!! HIGH RISK !!' : 'STABLE',
-            kidney: preds.kidney_stones_risk === 1 ? '!! CALC DETECTED !!' : 'CLEAR',
-            resp: preds.respiratory_risk === 1 ? '!! ANOMALY !!' : 'NORMAL',
-            source: data.source_file.split('_').pop()?.replace('.json','') || 'DRIVE'
-          };
-          setPredictionLogs(prev => [logEntry, ...prev].slice(0, 5));
-
-          const newNotifs: any[] = [];
-          
-          if (data.prepped_booking) {
-             newNotifs.push({
-               icon: '⚕️',
-               title: `Agent: ${data.prepped_booking.specialty} Healer Prep`,
-               desc: data.prepped_booking.reason,
-               time: 'just now',
-               severity: data.prepped_booking.urgency === 'High' ? 'warn' : 'info'
-             });
-          }
-          if (preds.diabetes_risk !== undefined) {
-             newNotifs.push({
-               icon: preds.diabetes_risk > 0 ? '⚠️' : '💧',
-               title: 'Drive: Diabetes Model',
-               desc: preds.diabetes_risk > 0 ? 'Elevated diabetes risk detected.' : 'Metabolic markers stable in drive stream.',
-               time: 'just now',
-               severity: preds.diabetes_risk > 0 ? 'warn' : 'ok'
-             });
-          }
-          if (preds.kidney_stones_risk !== undefined) {
-             newNotifs.push({
-               icon: preds.kidney_stones_risk > 0 ? '⚠️' : '💎',
-               title: 'Drive: Renal Model',
-               desc: preds.kidney_stones_risk > 0 ? 'Potential calculus (stones) detected in renal scan.' : 'Kidney filtration markers appear clear.',
-               time: 'just now',
-               severity: preds.kidney_stones_risk > 0 ? 'warn' : 'ok'
-             });
-          }
-          if (preds.respiratory_risk !== undefined) {
-             newNotifs.push({
-               icon: preds.respiratory_risk > 0 ? '⚠️' : '🌬️',
-               title: 'Drive: Respiratory Model',
-               desc: preds.respiratory_risk > 0 ? 'Respiratory pattern anomaly detected by AI.' : 'Breath patterns synchronized with baseline.',
-               time: 'just now',
-               severity: preds.respiratory_risk > 0 ? 'warn' : 'ok'
-             });
-          }
-          if (preds.burnout_risk !== undefined) {
-            newNotifs.push({
-              icon: preds.burnout_risk > 0 ? '⚠️' : '🧠',
-              title: 'Drive: Burnout Model',
-              desc: preds.burnout_risk > 0 ? 'High neurological exhaustion/burnout risk detected.' : 'Neural coherence and mental state balanced.',
-              time: 'just now',
-              severity: preds.burnout_risk > 0 ? 'warn' : 'ok'
-            });
-         }
-          
-          if (newNotifs.length > 0) {
-             setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 10));
-          }
+        };
+      } else {
+        // ── NORMAL IoT STREAM ──
+        try {
+          const res = await fetch(`/api/drive-monitor?t=${Date.now()}`, { cache: 'no-store' });
+          data = await res.json();
+        } catch (e) {
+          console.error("Failed to fetch drive stream", e);
+          return;
         }
-      } catch (e) {
-        console.error("Failed to fetch drive stream", e);
+      }
+        
+      // ── SHARED PROCESSING PIPELINE ──
+      // Every module reads from the same gateway.
+      if (data && !data.error) {
+        if (!emergencyOverride && data.source_file === lastSourceFileRef.current) return; 
+        lastSourceFileRef.current = data.source_file;
+
+        // Update Agent States
+        if (data.prepped_booking) {
+          setPreppedBooking(data.prepped_booking);
+          if (data.prepped_booking.urgency === 'High' && 
+              bookingStatus === 'idle' && 
+              data.prepped_booking.reason !== lastAutoPoppedReason
+          ) {
+              setShowBookingModal(true);
+              setLastAutoPoppedReason(data.prepped_booking.reason);
+          }
+        } else if (!emergencyOverride) {
+          setPreppedBooking(null);
+        }
+        if (data.internal_monologue) {
+          setInternalMonologue(data.internal_monologue);
+        }
+        if (data.stress_level !== undefined) {
+          setStressLevel(data.stress_level);
+        }
+        if (data.composite_risk !== undefined) {
+          setCompositeRisk(data.composite_risk);
+        }
+        if (data.phm) {
+          setPhmData(data.phm);
+        }
+        if (data.cht) {
+          setChtData(data.cht);
+        }
+
+        const preds = data.predictions || {};
+        setLatestInsights(preds);
+        setLatestVitals(data.patient_data);
+
+        // Add to Live Neural Feed
+        const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const logEntry = {
+          id: Date.now(),
+          time: timestamp,
+          cardiac: preds.cardiac_arrest_risk === 1 ? '!! HIGH RISK !!' : 'STABLE',
+          kidney: preds.kidney_stones_risk === 1 ? '!! CALC DETECTED !!' : 'CLEAR',
+          resp: preds.respiratory_risk === 1 ? '!! ANOMALY !!' : 'NORMAL',
+          source: emergencyOverride ? 'EMERGENCY' : (data.source_file?.split('_').pop()?.replace('.json','') || 'DRIVE')
+        };
+        setPredictionLogs(prev => [logEntry, ...prev].slice(0, 5));
+
+        const newNotifs: any[] = [];
+        
+        if (data.prepped_booking) {
+           newNotifs.push({
+             icon: emergencyOverride ? '🚨' : '⚕️',
+             title: emergencyOverride ? 'CRITICAL: Agentic AI Takeover' : `Agent: ${data.prepped_booking.specialty} Healer Prep`,
+             desc: data.prepped_booking.reason,
+             time: 'just now',
+             severity: data.prepped_booking.urgency === 'High' ? 'warn' : 'info'
+           });
+        }
+        if (preds.cardiac_arrest_risk !== undefined) {
+           newNotifs.push({
+             icon: preds.cardiac_arrest_risk > 0 ? '🚨' : '🫀',
+             title: 'Drive: Cardiac Model',
+             desc: preds.cardiac_arrest_risk > 0 ? `CRITICAL CARDIAC RISK — HR: ${Math.round(data.patient_data?.heartRate || 0)} BPM` : 'Cardiac rhythm stable.',
+             time: 'just now',
+             severity: preds.cardiac_arrest_risk > 0 ? 'warn' : 'ok'
+           });
+        }
+        if (preds.diabetes_risk !== undefined) {
+           newNotifs.push({
+             icon: preds.diabetes_risk > 0 ? '⚠️' : '💧',
+             title: 'Drive: Diabetes Model',
+             desc: preds.diabetes_risk > 0 ? 'Elevated diabetes risk detected.' : 'Metabolic markers stable in drive stream.',
+             time: 'just now',
+             severity: preds.diabetes_risk > 0 ? 'warn' : 'ok'
+           });
+        }
+        if (preds.kidney_stones_risk !== undefined) {
+           newNotifs.push({
+             icon: preds.kidney_stones_risk > 0 ? '⚠️' : '💎',
+             title: 'Drive: Renal Model',
+             desc: preds.kidney_stones_risk > 0 ? 'Potential calculus (stones) detected in renal scan.' : 'Kidney filtration markers appear clear.',
+             time: 'just now',
+             severity: preds.kidney_stones_risk > 0 ? 'warn' : 'ok'
+           });
+        }
+        if (preds.respiratory_risk !== undefined) {
+           newNotifs.push({
+             icon: preds.respiratory_risk > 0 ? '⚠️' : '🌬️',
+             title: 'Drive: Respiratory Model',
+             desc: preds.respiratory_risk > 0 ? `Respiratory failure — SpO2: ${Math.round(data.patient_data?.spo2 || 0)}%` : 'Breath patterns synchronized with baseline.',
+             time: 'just now',
+             severity: preds.respiratory_risk > 0 ? 'warn' : 'ok'
+           });
+        }
+        if (preds.burnout_risk !== undefined) {
+          newNotifs.push({
+            icon: preds.burnout_risk > 0 ? '⚠️' : '🧠',
+            title: 'Drive: Burnout Model',
+            desc: preds.burnout_risk > 0 ? 'High neurological exhaustion/burnout risk detected.' : 'Neural coherence and mental state balanced.',
+            time: 'just now',
+            severity: preds.burnout_risk > 0 ? 'warn' : 'ok'
+          });
+       }
+        
+        if (newNotifs.length > 0) {
+           setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 10));
+        }
       }
     };
 
-    const intervalId = setInterval(fetchDriveStream, 10000);
+    // During emergency, poll faster (every 2s) for dynamic vitals
+    const intervalMs = emergencyOverride ? 2000 : 10000;
+    const intervalId = setInterval(fetchDriveStream, intervalMs);
     fetchDriveStream();
     return () => clearInterval(intervalId);
-  }, []);
+  }, [emergencyOverride]);
 
   // Fetch full CHT data when modal opens
   const fetchCHTData = async () => {
@@ -518,9 +618,9 @@ function Page() {
       }
       else if (regionId === 'brain') {
         const risk = latestInsights.burnout_risk;
-        const activity = latestVitals?.activity || 0;
+        const mappedMETs = latestVitals?.activityMETs || (1.0 + (latestVitals?.activity || 0) * 10);
         theme.stats[0] = { label: "ML: Burnout State", value: risk === 1 ? "HIGH" : "BALANCED", unit: "Neural", status: risk === 1 ? "EXHAUSTION" : "STABLE" };
-        theme.stats[1] = { label: "Activity Factor", value: activity.toFixed(2), unit: "METs", status: "OK" };
+        theme.stats[1] = { label: "Activity Factor", value: mappedMETs.toFixed(2), unit: "METs", status: "OK" };
         if (risk > 0) {
           theme.color = 'violet';
           theme.accent = "text-violet-400";
@@ -624,11 +724,12 @@ function Page() {
     <main className="relative min-h-screen w-full overflow-hidden">
       <ThangkaFilters />
 
-      {/* Emergency Alert Outline */}
-
-      <div 
-        className={`emergency-outline transition-opacity duration-1000 ease-in-out ${isEmergency ? 'opacity-100' : 'opacity-0'}`}
-      />
+      {/* Emergency Alert Outline - PURELY MANUAL TRIGGER */}
+      {isEmergency && (
+        <div 
+          className="emergency-outline opacity-100"
+        />
+      )}
 
 
       {/* Updated Thangka Health Twin Logo (Top Left) */}
@@ -706,6 +807,37 @@ function Page() {
               >
                 {hospitalLogging ? 'Injecting to Nexus...' : 'Inject Secure Record'}
               </button>
+
+              <div className="pt-2 border-t border-zinc-800/50 mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmergencyOverride(true);
+                    setEmergencyTimeLeft(30);
+                    const timer = setInterval(() => {
+                      setEmergencyTimeLeft(prev => {
+                        if (prev <= 1) {
+                          clearInterval(timer);
+                          setEmergencyOverride(false);
+                          return 0;
+                        }
+                        return prev - 1;
+                      });
+                    }, 1000);
+                  }}
+                  disabled={emergencyOverride}
+                  className={`w-full py-3 rounded-lg font-bold text-sm border transition-all ${
+                    emergencyOverride 
+                    ? 'border-red-500/50 bg-red-500/10 text-red-500 cursor-not-allowed' 
+                    : 'border-red-600/30 bg-red-950/20 text-red-400 hover:bg-red-600/20 hover:border-red-600/60'
+                  }`}
+                >
+                  {emergencyOverride ? `EMERGENCY ACTIVE (${emergencyTimeLeft}s)` : '🔥 Simulate Cardiac Arrest (30s)'}
+                </button>
+                <p className="text-[9px] text-zinc-500 text-center mt-2 font-mono uppercase tracking-tighter">
+                  Warning: Triggers clinical override and global UI alerts
+                </p>
+              </div>
             </form>
           </div>
         </div>
@@ -1116,7 +1248,65 @@ function Page() {
         </div>
       )}
 
-      <div className={`fixed z-[100] w-[340px] transition-all duration-300 ease-out pointer-events-none ${getPositionClasses()} ${hoveredRegion && !selectedRegion ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"}`}>
+      {/* ======== CLICKED ORGAN STREAMING MODAL ======== */}
+      {selectedRegion && selectedTheme && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity animate-fade-in" onClick={() => setSelectedRegion(null)}>
+          <div className="relative w-full max-w-2xl bg-stone-950 border border-stone-800 rounded-3xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="absolute inset-0 bg-[url('/assets/thangka/paper-texture.png')] opacity-10 mix-blend-overlay pointer-events-none" />
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-stone-600 via-amber-700 to-stone-600 opacity-80" />
+            
+            <div className="p-8 pb-4 flex justify-between items-start">
+               <div className="flex items-center gap-4">
+                  <div className={`p-2 rounded-xl bg-stone-900 border border-stone-800`}>
+                     {renderThangkaIcon(selectedTheme, "w-12 h-12")}
+                  </div>
+                  <div>
+                    <h2 className={`text-2xl font-bold tracking-tight text-white`}>{selectedTheme.title}</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500 mt-1">{selectedTheme.subtitle}</p>
+                  </div>
+               </div>
+               <button onClick={() => setSelectedRegion(null)} className="p-2 rounded-full hover:bg-stone-900 text-stone-500 hover:text-white transition-colors">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+               </button>
+            </div>
+
+            <div className="p-8 pt-4">
+              <div className="bg-stone-900/40 border border-stone-800 rounded-2xl p-5 mb-6 relative overflow-hidden group">
+                <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full blur-2xl opacity-10 transition-opacity group-hover:opacity-20" style={{ backgroundColor: selectedTheme.color || 'white' }} />
+                <p className="text-sm font-medium leading-relaxed text-stone-300 relative z-10">
+                  {selectedTheme.description}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {selectedTheme.stats && selectedTheme.stats.map((stat: any, idx: number) => (
+                   <div key={idx} className="bg-stone-900/60 border border-stone-800 rounded-2xl p-4 relative overflow-hidden">
+                      <div className="absolute inset-0 opacity-5 mix-blend-overlay" style={{ backgroundColor: selectedTheme.color || 'white' }} />
+                      <div className="flex justify-between items-start mb-2 relative z-10">
+                         <span className="text-[10px] font-black tracking-widest uppercase text-stone-500">{stat.label}</span>
+                         <span className={`text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm ${stat.status?.includes('WARN') || stat.status?.includes('ELEVATED') || stat.status?.includes('HIGH') || stat.status?.includes('ANOMALY') || stat.status?.includes('DETECTED') || stat.status?.includes('EXHAUSTION') ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>{stat.status || 'NORMAL'}</span>
+                      </div>
+                      <div className="flex items-baseline gap-1 relative z-10">
+                         <span className="text-3xl font-black text-white">{stat.value}</span>
+                         {stat.unit && <span className="text-xs font-bold text-stone-400">{stat.unit}</span>}
+                      </div>
+                   </div>
+                ))}
+              </div>
+              
+              <div className="mt-8 pt-4 border-t border-stone-800/50 flex justify-between items-center">
+                 <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                   Live Bio-Telemetry Stream Active
+                 </span>
+                 <span className="text-[10px] font-mono text-stone-600 tracking-wider">ID: THNGK-{selectedRegion.toUpperCase()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className={`fixed z-[100] w-[340px] transition-all duration-300 ease-out pointer-events-none ${getPositionClasses()} ${(hoveredRegion && !selectedRegion) ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"}`}>
         {activeRegionData && getDynamicOrganTheme(lastHovered || "") && (() => {
           const theme = getDynamicOrganTheme(lastHovered || "");
 
@@ -1247,7 +1437,7 @@ function Page() {
           const sc = scrollColors[theme.color] || scrollColors.amber;
 
           return (
-            <div className={`relative flex flex-col items-center ${hoveredRegion && !selectedRegion ? "animate-unroll" : ""}`} style={{ perspective: '600px' }}>
+            <div className={`relative flex flex-col items-center ${(hoveredRegion && !selectedRegion) ? "animate-unroll" : ""}`} style={{ perspective: '600px' }}>
               {/* Top Roller — stays fixed, organ-themed */}
               <div className="h-5 w-[106%] scroll-roller rounded-full z-20 relative flex items-center justify-between" style={{ background: sc.rollerGrad }}>
                 <div className="absolute -left-1.5 w-4 h-6 rounded-sm" style={{ background: sc.knobGrad, border: `1px solid ${sc.knobBorder}`, boxShadow: `0 0 4px ${sc.glowColor}, inset 0 1px 0 rgba(255,255,255,0.2)` }} />

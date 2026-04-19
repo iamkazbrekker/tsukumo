@@ -67,7 +67,14 @@ def predict():
     if not data:
         return jsonify({"error": "No JSON data provided"}), 400
 
-    results = {}
+    results = {
+        'cardiac_arrest_risk': 0,
+        'diabetes_risk': 0,
+        'burnout_risk': 0,
+        'kidney_stones_risk': 0,
+        'respiratory_risk': 0
+    }
+    
     try:
         # Standard input features
         features = ['age', 'sysBP', 'diaBP', 'heartRate', 'totChol', 'HDLChol', 'glucose', 'bmi', 'currentSmoker', 'cigarettes_per_day', 'prevalentHyp', 'sleep_hours', 'physical_activity_met', 'sodium_mg_per_day', 'alcohol_drinks_per_week', 'diabetes']
@@ -77,70 +84,72 @@ def predict():
             if len(vals) >= target_n: return [vals[:target_n]]
             return [vals + [0.0] * (target_n - len(vals))]
 
-        # Cardiac (14 features)
-        try:
-            if cardiac_model:
-                results['cardiac_arrest_risk'] = int(cardiac_model.predict(pad_row(row_vals, 14))[0])
-            else:
-                # Fallback purely based on BP/Age
-                results['cardiac_arrest_risk'] = 1 if (float(data.get('sysBP', 0)) > 150 or float(data.get('age', 0)) > 65) else 0
-        except Exception as e:
-            results['cardiac_error'] = str(e)
-            results['cardiac_arrest_risk'] = 1 if (float(data.get('sysBP', 0)) > 150) else 0
+        # Cardiac
+        if cardiac_model:
+            c_pred = int(cardiac_model.predict(pad_row(row_vals, 14))[0])
+            # If BP and HR are perfect, ignore the model's 1-prediction
+            if c_pred == 1 and float(data.get('sysBP', 0)) < 140 and float(data.get('heartRate', 0)) < 110:
+                c_pred = 0
+            results['cardiac_arrest_risk'] = c_pred
+        else:
+            results['cardiac_arrest_risk'] = 1 if (float(data.get('sysBP', 0)) > 155 or float(data.get('heartRate', 0)) > 130) else 0
 
-        # Diabetes (25 features)
-        try:
-            if diabetes_model:
-                results['diabetes_risk'] = int(diabetes_model.predict(pad_row(row_vals, 25))[0])
-            else:
-                results['diabetes_risk'] = 1 if float(data.get('glucose', 0)) > 140 else 0
-        except Exception as e:
-            results['diabetes_error'] = str(e)
-            results['diabetes_risk'] = 1 if float(data.get('glucose', 100)) > 140 else 0
+        # Diabetes
+        if diabetes_model:
+            d_pred = int(diabetes_model.predict(pad_row(row_vals, 25))[0])
+            if d_pred == 1 and float(data.get('glucose', 0)) < 130:
+                d_pred = 0
+            results['diabetes_risk'] = d_pred
+        else:
+            results['diabetes_risk'] = 1 if float(data.get('glucose', 0)) > 140 else 0
 
-        # Burnout (29 features)
-        try:
-            if burnout_model:
-                results['burnout_risk'] = int(burnout_model.predict(pad_row(row_vals, 29))[0])
-        except Exception as e:
-            results['burnout_error'] = str(e)
+        # Burnout
+        results['burnout_risk'] = 1 if float(data.get('activity', 0)) > 0.9 else 0
 
-        # Kidney Stones (6 features)
-        try:
-            if kidney_model:
-                k_vals = [float(data.get(f, 0.0)) for f in ['gravity', 'ph', 'osmo', 'cond', 'urea', 'calc']]
-                results['kidney_stones_risk'] = int(kidney_model.predict([k_vals])[0])
-            else:
-                results['kidney_stones_risk'] = 1 if (float(data.get('calc', 0)) > 8 or "stones" in str(data).lower()) else 0
-        except Exception as e:
-            results['kidney_error'] = str(e)
-            results['kidney_stones_risk'] = 1 if "stones" in str(data).lower() else 0
+        # Kidney Stones
+        if kidney_model:
+            import pandas as pd
+            k_default = {'gravity':1.015, 'ph':6.5, 'osmo':600, 'cond':20, 'urea':300, 'calc':3}
+            k_vals = [float(data.get(f, k_default[f])) for f in ['gravity', 'ph', 'osmo', 'cond', 'urea', 'calc']]
+            k_df = pd.DataFrame([k_vals], columns=['gravity', 'ph', 'osmo', 'cond', 'urea', 'calc'])
+            results['kidney_stones_risk'] = int(kidney_model.predict(k_df)[0])
 
-        # Respiratory (NLP Model)
-        try:
-            if respiratory_model:
-                text = str(data.get('notes', '')) + " " + str(data.get('diagnosis', ''))
-                if isinstance(respiratory_model, dict):
-                    # Handle the specific dictionary structure found in inspection
-                    xt = respiratory_model['tfidf'].transform([text])
-                    # If scaler/model expect specific shapes, we fallback to keyword matching
-                    # because the vectorized shape might mismatch between trained/current env
-                    if "breath" in text.lower() or "lung" in text.lower() or "respiratory" in text.lower():
-                        results['respiratory_risk'] = 1
-                    else:
-                        results['respiratory_risk'] = 0
-                else:
-                    results['respiratory_risk'] = int(respiratory_model.predict([text])[0])
-            else:
-                results['respiratory_risk'] = 1 if ("breath" in str(data).lower() or "lung" in str(data).lower()) else 0
-        except Exception as e:
-            results['respiratory_error'] = str(e)
-            results['respiratory_risk'] = 1 if "breath" in str(data).lower() else 0
+        # Respiratory
+        text = str(data.get('notes', '')) + " " + str(data.get('diagnosis', ''))
+        if "breath" in text.lower() or "lung" in text.lower():
+            results['respiratory_risk'] = 1
+        else:
+            results['respiratory_risk'] = 0
+
+        # --- Holistic Agent Reasoning ---
+        # Calculate composite risk for the dashboard
+        c_risk = (results['cardiac_arrest_risk'] * 0.6) + (results['respiratory_risk'] * 0.3) + (results['burnout_risk'] * 0.1)
+        
+        prepped_booking = None
+        monologue = ["ML Service: Scan complete. Vitals healthy."]
+        
+        if c_risk > 0.5 or results['cardiac_arrest_risk'] == 1:
+            monologue = ["Alert: Biological variance requires clinical check."]
+            prepped_booking = {
+                "specialty": "Heart",
+                "urgency": "High",
+                "reason": "Elevated predicted cardiac risk from live IoT stream.",
+                "recommended_window": "ASAP (Within 2 hours)"
+            }
+        
+        print(f"PREDICT: HR={data.get('heartRate')}, CardiacRisk={results['cardiac_arrest_risk']}, Composite={c_risk}")
+        
+        return jsonify({
+            "status": "success",
+            "predictions": results,
+            "composite_risk": float(c_risk),
+            "prepped_booking": prepped_booking,
+            "internal_monologue": monologue,
+            "stress_level": 0.1 + (results['burnout_risk'] * 0.4)
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-    return jsonify(results)
 
 # ── /whatif ───────────────────────────────────────────────────────────────────
 @app.route('/whatif', methods=['POST'])
@@ -192,4 +201,4 @@ def whatif():
 # ── entry point ───────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     print("Starting ML Service on port 5000…")
-    app.run(port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)
