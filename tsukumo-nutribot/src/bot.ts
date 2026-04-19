@@ -12,6 +12,8 @@ import pino from 'pino';
 import { handleMessage } from './handlers/messageHandler';
 import { initProactiveMonitor } from './monitors/spikeMonitor';
 import { startWebhookServer } from './integrations/tsukumoClient';
+import { sendRichAlert, sendText } from './utils/messaging';
+import { generateNutritionSuggestion } from './ai/geminiClient';
 
 const logger = pino({ level: 'silent' });
 const makeInMemoryStore = (Baileys as any).makeInMemoryStore || require('@whiskeysockets/baileys').makeInMemoryStore || (() => ({ bind: () => {} }));
@@ -75,8 +77,32 @@ async function startBot() {
 startBot();
 
 // Start webhook server for push events
-startWebhookServer((data) => {
-    // Optional: add logic here if webhook receives data out of band, 
-    // though the Cron monitor reads via GET. If you want direct webhook pushes, 
-    // you could invoke spike detection here and push to WA.
+startWebhookServer(async (data) => {
+    const PATIENT_JID = process.env.PATIENT_WHATSAPP_NUMBER || '';
+    const ALERT_JID = process.env.ALERT_WHATSAPP_NUMBER || '';
+    
+    // Ensure sock is available (the global let sock)
+    if (!sock || !PATIENT_JID) {
+      console.warn('⚠️ Webhook received but bot is not connected or PATIENT_JID missing.');
+      return;
+    }
+
+    const { level, organ, message, recommendation, vitals } = data;
+    
+    console.log(`🚀 Dispatching push alert for ${organ} via WhatsApp...`);
+    
+    // 1. Send immediate rich alert
+    await sendRichAlert(sock, PATIENT_JID, `${organ} Push Alert`, message, level || 'warning');
+
+    // 2. Alert Caregiver if critical
+    if (level === 'critical' && ALERT_JID) {
+      await sendRichAlert(sock, ALERT_JID, `🚨 REMOTE CRISIS: ${organ}`, `Patient is experiencing: ${message}\n\nSystem recommendation: ${recommendation}`, 'critical');
+    }
+
+    // 3. Follow up with AI
+    setTimeout(async () => {
+      const context = `CRITICAL PUSH EVENT: ${message}`;
+      const suggestion = await generateNutritionSuggestion(vitals || {}, context, `Emergency nutrition for ${organ} alert?`);
+      await sendText(sock, PATIENT_JID, `🥗 *Emergency Nutrition Guidance (Instant Dispatch):*\n\n${suggestion}`);
+    }, 5000);
 });

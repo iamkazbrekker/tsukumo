@@ -813,6 +813,19 @@ function Page() {
                   type="button"
                   onClick={() => {
                     setEmergencyOverride(true);
+                    // 🚨 UNIFIED ALERT GATEWAY: Notify Nutribot on WhatsApp of the manual crisis
+                    fetch('http://localhost:4000/webhook/health-alert', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        level: 'critical',
+                        organ: 'Heart',
+                        message: '🚨 CRITICAL: Heart rate at 185 BPM! Cardiac arrest simulation started via Manual Override.',
+                        recommendation: 'Simulated intervention. Dashboard showing red alert. 30s remaining.',
+                        vitals: { heartRate: 185, spo2: 82, resp_rate: 34, glucose: 240 }
+                      })
+                    }).catch(() => {});
+
                     setEmergencyTimeLeft(30);
                     const timer = setInterval(() => {
                       setEmergencyTimeLeft(prev => {
