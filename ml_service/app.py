@@ -181,43 +181,24 @@ def fetch_nearby_hospital(specialty):
     return f"Tsukumo {specialty} Medical Center (Fallback)"
 
 def send_invitation_email(to_email, subject, body_text, ics_data):
-    api_key = os.environ.get("RESEND_API_KEY")
-    if not api_key:
-        return False, "RESEND_API_KEY missing in environment."
-        
-    import base64
-    b64_ics = base64.b64encode(ics_data.encode('utf-8')).decode('utf-8')
-    
-    # Resend requires a verified domain or uses onboarding@resend.dev for testing bound to your dev email
-    sender_email = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+    # Offload to Next.js API route
+    nextjs_notify_url = "http://localhost:3000/api/notify"
     
     payload = {
-        "from": f"Tsukumo Autonomous Agent <{sender_email}>",
         "to": to_email,
         "subject": subject,
         "text": body_text,
-        "attachments": [
-            {
-                "filename": "appointment.ics",
-                "content": b64_ics,
-                "content_type": "text/calendar"
-            }
-        ]
+        "ics_data": ics_data
     }
     
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-
     try:
-        resp = requests.post("https://api.resend.com/emails", json=payload, headers=headers)
-        if resp.status_code in [200, 201]:
-            return True, "Email & Calendar dispatched successfully via Resend API"
+        resp = requests.post(nextjs_notify_url, json=payload)
+        if resp.status_code == 200:
+            return True, "Email & Calendar dispatched successfully via Next.js Proxy"
         else:
-            return False, f"Resend API Error: {resp.text}"
+            return False, f"Next.js Notify Error: {resp.text}"
     except Exception as e:
-        return False, str(e)
+        return False, f"Failed to connect to Next.js notify route: {str(e)}"
 
 @app.route('/confirm-booking', methods=['POST'])
 def confirm_booking():
@@ -272,7 +253,7 @@ END:VCALENDAR"""
     }
 
     # 3. Simulate Email Generation & Send using SMTP
-    patient_email = body.get("patient_email", "kazbrekker@example.com") # Replace with standard recipient
+    patient_email = body.get("patient_email", "kazbrekker898@gmail.com") # Replace with standard recipient
     
     email_body = f"""Tsukumo Autonomous Care Dispatch 
 ---------------------------------
