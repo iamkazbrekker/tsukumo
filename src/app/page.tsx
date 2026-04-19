@@ -1197,7 +1197,7 @@ function Page() {
                 onClick={async () => {
                   setBookingStatus('booking');
                   try {
-                    const res = await fetch('http://127.0.0.1:8000/confirm-booking', {
+                    const res = await fetch('http://127.0.0.1:5000/confirm-booking', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1237,6 +1237,44 @@ function Page() {
                     <span className="text-stone-500">Scheduled Time</span>
                     <span className="text-white font-mono">{new Date(finalBookingData.time).toLocaleString()}</span>
                   </div>
+                  
+                  {finalBookingData.calendar_ics && (
+                  <div className="flex flex-col gap-2 border-t border-white/5 mt-4 pt-4">
+                     <button onClick={() => {
+                        const blob = new Blob([finalBookingData.calendar_ics], { type: 'text/calendar' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Tsukumo_Appointment_${finalBookingData.booking_id}.ics`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                     }} className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors">
+                       📅 Build & Download Calendar (.ics)
+                     </button>
+                     <button onClick={() => {
+                        const blob = new Blob([JSON.stringify(finalBookingData.ticket_details, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `DispatchTicket_${finalBookingData.booking_id}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                     }} className="w-full py-2 rounded-lg bg-stone-700 hover:bg-stone-600 text-amber-400 font-bold text-xs transition-colors flex justify-center items-center gap-1">
+                       <span className="text-base">🎟️</span> Generate Dispatch Ticket
+                     </button>
+                     <button onClick={() => {
+                        const blob = new Blob([finalBookingData.mock_email_sent], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Automated_Email_${finalBookingData.booking_id}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                     }} className="w-full py-2 rounded-lg bg-stone-700 hover:bg-stone-600 text-emerald-400 font-bold text-xs transition-colors flex justify-center items-center gap-1">
+                       <span className="text-base">📧</span> Request Simulated Dispatch Email
+                     </button>
+                  </div>
+                  )}
                 </div>
 
                 <button onClick={() => { setShowBookingModal(false); setBookingStatus('idle'); }} className="px-10 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-widest text-xs hover:scale-105 transition-all">

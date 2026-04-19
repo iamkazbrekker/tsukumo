@@ -4,6 +4,17 @@ import pickle
 import joblib
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import time
+from datetime import datetime, timedelta
+import smtplib
+import ssl
+from email.message import EmailMessage
+import requests
+from dotenv import load_dotenv
+
+# Load variables from the root .env.local file automatically
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env.local')
+load_dotenv(dotenv_path=env_path)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -150,6 +161,151 @@ def predict():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# ── /confirm-booking ─────────────────────────────────────────────────────────
+
+def fetch_nearby_hospital(specialty):
+    api_key = os.environ.get("GOOGLE_MAPS_API_KEY")
+    if not api_key:
+        return f"Tsukumo {specialty} Medical Center (Local Sync Node)"
+        
+    url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+    params = {"query": f"best {specialty} hospital clinic open now near me", "key": api_key}
+    try:
+        resp = requests.get(url, params=params).json()
+        if resp.get("results"):
+            top = resp["results"][0]
+            return f"{top['name']} ({top.get('formatted_address', 'Unknown Address')})"
+    except:
+        pass
+    return f"Tsukumo {specialty} Medical Center (Fallback)"
+
+def send_invitation_email(to_email, subject, body_text, ics_data):
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        return False, "RESEND_API_KEY missing in environment."
+        
+    import base64
+    b64_ics = base64.b64encode(ics_data.encode('utf-8')).decode('utf-8')
+    
+    # Resend requires a verified domain or uses onboarding@resend.dev for testing bound to your dev email
+    sender_email = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+    
+    payload = {
+        "from": f"Tsukumo Autonomous Agent <{sender_email}>",
+        "to": to_email,
+        "subject": subject,
+        "text": body_text,
+        "attachments": [
+            {
+                "filename": "appointment.ics",
+                "content": b64_ics,
+                "content_type": "text/calendar"
+            }
+        ]
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        resp = requests.post("https://api.resend.com/emails", json=payload, headers=headers)
+        if resp.status_code in [200, 201]:
+            return True, "Email & Calendar dispatched successfully via Resend API"
+        else:
+            return False, f"Resend API Error: {resp.text}"
+    except Exception as e:
+        return False, str(e)
+
+@app.route('/confirm-booking', methods=['POST'])
+def confirm_booking():
+    body = request.json or {}
+    booking_id = body.get("booking_id", f"REQ-{int(time.time()*1000)}")
+    specialty = "Cardiology" if "HEART" in booking_id.upper() else "General"
+    urgency = "High"
+    context_summary = "Agentic intervention requested based on physiological anomaly."
+    
+    healers = {
+        "Cardiology": "Dr. Arisatya (Senior Cardiologist)",
+        "Lung": "Dr. Vayu (Pulmonologist)",
+        "Mental": "Dr. Prana (Cognitive Counselor)",
+        "Kidney": "Dr. Varuna (Renal Specialist)",
+        "General": "Dr. Charaka"
+    }
+    healer_name = healers.get(specialty, "Dr. Charaka")
+    appointment_time = datetime.now() + timedelta(days=1)
+    
+    hospital_location = fetch_nearby_hospital(specialty.lower())
+    
+    # 1. Generate ICS Calendar Event
+    dt_format = "%Y%m%dT%H%M%S"
+    start_str = appointment_time.strftime(dt_format)
+    end_str = (appointment_time + timedelta(hours=1)).strftime(dt_format)
+    ics_calendar = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Tsukumo Health//Autonomous Care Agent//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:{booking_id}@tsukumo.ai
+DTSTAMP:{datetime.now().strftime(dt_format)}Z
+DTSTART;TZID=Asia/Kolkata:{start_str}
+DTEND;TZID=Asia/Kolkata:{end_str}
+SUMMARY:Tsukumo Intervention - {specialty}
+DESCRIPTION:Autonomous appointment booked due to vital anomalies.\\nAssigned: {healer_name}\\nUrgency: {urgency}
+LOCATION:{hospital_location}
+ORGANIZER;CN="Tsukumo Healer Nexus":mailto:no-reply@tsukumo.ai
+END:VEVENT
+END:VCALENDAR"""
+
+    # 2. Simulate Dispatch Ticket
+    ticket_payload = {
+        "ticket_id": f"TKT-{booking_id}",
+        "patient": "patient_001",
+        "specialty": specialty,
+        "dr": healer_name,
+        "location": hospital_location,
+        "appointment_time": appointment_time.isoformat(),
+        "urgency": urgency,
+        "generated_at": datetime.now().isoformat()
+    }
+
+    # 3. Simulate Email Generation & Send using SMTP
+    patient_email = body.get("patient_email", "kazbrekker@example.com") # Replace with standard recipient
+    
+    email_body = f"""Tsukumo Autonomous Care Dispatch 
+---------------------------------
+Dear Patient,
+
+Your Tsukumo Autonomous Care agent has scheduled an urgent consultation.
+
+Urgency: {urgency}
+Assigned Healer: {healer_name}
+Facility: {hospital_location}
+
+A Google Calendar invite is attached to this email. See you at {appointment_time.strftime('%I:%M %p')}.
+
+Ticket Reference: TKT-{booking_id}
+"""
+    
+    # Attempt real email dispatch
+    email_sent, email_msg = send_invitation_email(patient_email, f"Urgent: Medical Dispatch ({specialty})", email_body, ics_calendar)
+
+    return jsonify({
+        "booking_id": booking_id,
+        "status": "Confirmed",
+        "healer_name": healer_name,
+        "location": hospital_location,
+        "time": appointment_time.isoformat(),
+        "specialty": specialty,
+        "urgency": urgency,
+        "context": context_summary,
+        "calendar_ics": ics_calendar,
+        "ticket_details": ticket_payload,
+        "mock_email_sent": email_body,
+        "email_status": email_msg
+    })
 
 # ── /whatif ───────────────────────────────────────────────────────────────────
 @app.route('/whatif', methods=['POST'])
