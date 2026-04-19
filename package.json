@@ -6,9 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:nutrition": "ts-node --project tsconfig.json scripts/seedNutritionDB.ts"
   },
   "dependencies": {
+    "@types/mongoose": "^5.11.96",
+    "mongoose": "^9.4.1",
     "next": "16.2.4",
     "nodemailer": "^8.0.5",
     "react": "19.2.4",
@@ -26,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "ts-node": "^10",
     "typescript": "^5"
   }
 }

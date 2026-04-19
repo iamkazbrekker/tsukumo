@@ -139,24 +139,73 @@ async def book_healer_appointment_api(specialty: str, urgency: str, preferred_ti
     if best_doctor:
         healer_name = best_doctor["name"]
         wait_mins = best_doctor["patients_in_queue"] * 15
-        appointment_time = (datetime.now() + timedelta(minutes=wait_mins + 30)).isoformat()
+        appointment_time = datetime.now() + timedelta(minutes=wait_mins + 30)
         report_text = f"Agent Analysis: {healer_name} selected. Geographic proximity: ~{best_dist:.1f}km. Priority routing applied for {urgency} urgency."
         logger.info(f"[Agent Tool] Dispatched to {healer_name} (Distance: ~{best_dist:.1f}km, Score: {best_score:.1f}, Due to urgency: {urgency})")
     else:
         healer_name = "Dr. Charaka (Fallback)"
-        appointment_time = (datetime.now() + timedelta(days=1)).isoformat()
+        appointment_time = datetime.now() + timedelta(days=1)
         report_text = "Agent Analysis: No matching available specialist found. Default internal physician assigned."
         logger.info(f"[Agent Tool] No matching available doctor found. Dispatched to Fallback.")
+
+    # 1. Generate ICS Calendar Event
+    dt_format = "%Y%m%dT%H%M%S"
+    start_str = appointment_time.strftime(dt_format)
+    end_str = (appointment_time + timedelta(hours=1)).strftime(dt_format)
+    ics_calendar = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Tsukumo Health//Autonomous Care Agent//EN
+BEGIN:VEVENT
+UID:{booking_id}@tsukumo.ai
+DTSTAMP:{datetime.now().strftime(dt_format)}Z
+DTSTART;TZID=Asia/Kolkata:{start_str}
+DTEND;TZID=Asia/Kolkata:{end_str}
+SUMMARY:Tsukumo Healer Consultation - {specialty}
+DESCRIPTION:Autonomous appointment booked due to: {context_summary}
+LOCATION:Virtual Link / Tsukumo Nexus
+END:VEVENT
+END:VCALENDAR"""
+
+    # 2. Simulate Dispatch Ticket
+    ticket_payload = {
+        "ticket_id": f"TKT-{booking_id}",
+        "patient": "patient_001",
+        "specialty": specialty,
+        "dr": healer_name,
+        "appointment_time": appointment_time.isoformat(),
+        "urgency": urgency,
+        "generated_at": datetime.now().isoformat()
+    }
+
+    # 3. Simulate Email Generation
+    simulated_email = f"""
+From: auto-agent@tsukumo.ai
+To: patient_001@tsukumo-health.org
+Subject: Urgent: Confirmed Appointment with {healer_name} ({specialty})
+
+Dear Patient,
+
+Your Tsukumo Autonomous Care agent has successfully scheduled a consultation.
+Reason: {context_summary}
+Urgency: {urgency}
+
+A calendar invite is attached. See you at {appointment_time.strftime('%I:%M %p')}.
+Ticket Reference: TKT-{booking_id}
+"""
+    logger.info(f"Generated Email & Calendar for ticket TKT-{booking_id}")
 
     return {
         "booking_id": booking_id,
         "status": "Confirmed",
         "healer_name": healer_name,
-        "time": appointment_time,
+        "time": appointment_time.isoformat(),
         "specialty": specialty,
         "urgency": urgency,
         "context": context_summary,
-        "report": report_text
+        "report": report_text,
+        "calendar_ics": ics_calendar,
+        "ticket_details": ticket_payload,
+        "mock_email_sent": simulated_email
     }
 
 # --- AGENT REASONING LOGIC ---

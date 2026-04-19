@@ -90,6 +90,7 @@ export async function GET() {
       activity: steamData?.activity_level || 0.1,
       sleep_hours: steamData?.sleep_hours || 7,
       stress_level: steamData?.stress_level || 0.1,
+      activityMETs: 1.0 + (steamData?.activity_level || 0.1) * 10,
       // Map specialized model fields
       notes: `IoT Sync: HR=${steamData?.heart_rate}, RR=${steamData?.resp_rate}, Activity=${steamData?.activity_level}`,
       diagnosis: steamData?.heart_rate > 100 ? "Tachycardia observed in stream" : "Normal Sinus Rhythm"
@@ -99,7 +100,7 @@ export async function GET() {
     let agentResults: any = { error: "FastAPI Agent service not reachable." };
 
     try {
-      const mlResponse = await fetch('http://127.0.0.1:8000/vitals', {
+      const mlResponse = await fetch('http://localhost:5000/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,51 +123,76 @@ export async function GET() {
          throw new Error("Python fallback");
       }
     } catch (e) {
-      console.warn("Python service offline, failing back to heuristic logic...");
+      console.warn("Python service offline mapping to localhost...");
       
-      // Fallback heuristic: Check for critical SPO2 even if ML service is down
-      let prepped_booking = null;
-      let internal_monologue = ["ML Service Offline. Using fail-safe heuristic checks."];
-      const pData = parsedData as any;
-
-      if (pData.spo2 && pData.spo2 < 90) {
-        internal_monologue.push(`CRITICAL: SpO2 level detected at ${pData.spo2}%.`);
-        prepped_booking = {
-          specialty: "Lung",
-          urgency: "High",
-          reason: `Hypoxia detected (SpO2: ${pData.spo2}%). Immediate attention recommended.`,
-          recommended_window: "ASAP (Within 2 hours)"
-        };
-      } else {
-        // Random cardiac check for demonstration if no other criticals
-        const mockCardiac = Math.random() > 0.95; 
-        if (mockCardiac) {
-          prepped_booking = {
-            specialty: "Heart",
-            urgency: "High",
-            reason: "Simulated cardiac variance detected in fall-back mode.",
-            recommended_window: "Today"
-          };
-          internal_monologue.push("Heuristic check: Potential cardiac variance detected.");
+      // Attempt 127.0.0.1 as a secondary fallback if localhost fails
+      try {
+        const mlFallback = await fetch('http://127.0.0.1:5000/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(parsedData),
+        });
+        if (mlFallback.ok) {
+            agentResults = await mlFallback.json();
         } else {
-          internal_monologue.push("All vitals within safe heuristic ranges.");
+            throw new Error();
         }
-      }
+      } catch {
+        console.warn("ML Service entirely unreachable. Using safe heuristic logic.");
+        
+        let prepped_booking = null;
+        let internal_monologue = ["ML Service Offline. Monitoring vitals via safe heuristic baseline."];
+        const pData = parsedData as any;
 
-      agentResults = {
-        status: "success",
-        prepped_booking,
-        internal_monologue,
-        predictions: {
-          cardiac_arrest_risk: parsedData.heartRate > 120 ? 1 : 0,
-          diabetes_risk: 0,
-          burnout_risk: parsedData.activity > 0.8 ? 1 : 0,
-          respiratory_risk: parsedData.resp_rate > 25 ? 1 : 0
+        // Strictly only trigger if SPO2 is actually critical
+        if (pData.spo2 && pData.spo2 < 90) {
+            internal_monologue.push(`CRITICAL: SpO2 level detected at ${pData.spo2}%.`);
+            prepped_booking = {
+            specialty: "Lung",
+            urgency: "High",
+            reason: `Hypoxia detected (SpO2: ${pData.spo2}%). Immediate attention recommended.`,
+            recommended_window: "ASAP (Within 2 hours)"
+            };
+        } else {
+            internal_monologue.push("Continuous monitoring: Vitals currently appear within safe range.");
         }
-      };
+
+        agentResults = {
+            status: "success",
+            prepped_booking,
+            internal_monologue,
+            predictions: {
+            cardiac_arrest_risk: 0,
+            diabetes_risk: 0,
+            burnout_risk: 0,
+            respiratory_risk: 0
+            }
+        };
+      }
     }
 
     const mockFileTimestampStream = `data_stream_seq_${parsedData.heartRate}.json`;
+
+    // Push critical events to the NutriBot webhook
+    const predictionResults = agentResults.predictions || agentResults;
+    const NUTRIBOT_WEBHOOK = 'http://localhost:4000/webhook/health-alert';
+    const criticalPreds = ['cardiac_arrest_risk', 'respiratory_risk', 'kidney_stones_risk'];
+    const hasCritical = criticalPreds.some(k => (predictionResults as any)[k] === 1);
+
+    if (hasCritical) {
+      try {
+        await fetch(NUTRIBOT_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source: 'tsukumo-drive-monitor',
+            predictions: predictionResults,
+            patient_data: parsedData,
+            timestamp: new Date().toISOString(),
+          }),
+        }).catch(() => {}); // Fire and forget — don't block response
+      } catch {}
+    }
 
     return NextResponse.json({
       source_file: mockFileTimestampStream,
