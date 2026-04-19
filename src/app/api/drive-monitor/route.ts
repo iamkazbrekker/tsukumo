@@ -124,7 +124,7 @@ export async function GET() {
       }
     } catch (e) {
       console.warn("Python service offline, failing back to internal logic...");
-      predictionResults = {
+      agentResults = {
         cardiac_arrest_risk: parsedData.heartRate > 120 ? 1 : 0,
         diabetes_risk: 0,
         burnout_risk: parsedData.activity > 0.8 ? 1 : 0,

@@ -221,6 +221,11 @@ function Page() {
   const [emergencyOverride, setEmergencyOverride] = useState(false);
   const [emergencyTimeLeft, setEmergencyTimeLeft] = useState(0);
 
+  // --- WELLNESS AGENT STATE ---
+  const [recommendations, setRecommendations] = useState<any>(null);
+  const [recLoading, setRecLoading] = useState(false);
+  const [recReasoningOpen, setRecReasoningOpen] = useState(false);
+
   // EMERGENCY IS NOW PURELY MANUAL. NO AUTOMATIC RED PULSE.
   const isEmergency = !!emergencyOverride;
 
@@ -396,6 +401,27 @@ function Page() {
         const preds = data.predictions || {};
         setLatestInsights(preds);
         setLatestVitals(data.patient_data);
+
+        // --- WELLNESS AGENT: fetch recommendations after each poll ---
+        // Fire-and-forget so it never blocks the main pipeline
+        (async () => {
+          setRecLoading(true);
+          try {
+            const recRes = await fetch('/api/recommend', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                predictions: preds,
+                vitals: data.patient_data,
+              }),
+            });
+            if (recRes.ok) setRecommendations(await recRes.json());
+          } catch (e) {
+            console.warn('Wellness Agent fetch failed', e);
+          } finally {
+            setRecLoading(false);
+          }
+        })();
 
         // Add to Live Neural Feed
         const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -2534,6 +2560,228 @@ function Page() {
           </div>
         </div>
       )}
+
+      {/* ======== WELLNESS AGENT PANEL ======== */}
+      <div
+        id="wellness-agent-panel"
+        className="fixed left-6 bottom-28 z-[120] w-[270px] flex flex-col"
+        style={{
+          filter: 'drop-shadow(0 0 30px rgba(34,197,94,0.08))',
+        }}
+      >
+        {/* Card */}
+        <div
+          className="relative rounded-2xl overflow-hidden border"
+          style={{
+            background: 'linear-gradient(145deg, rgba(15,20,15,0.97) 0%, rgba(10,18,12,0.98) 100%)',
+            borderColor: recLoading
+              ? 'rgba(34,197,94,0.5)'
+              : recommendations
+              ? 'rgba(34,197,94,0.25)'
+              : 'rgba(34,197,94,0.12)',
+            boxShadow: recLoading
+              ? '0 0 30px rgba(34,197,94,0.15), inset 0 1px 0 rgba(34,197,94,0.1)'
+              : '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)',
+            transition: 'border-color 0.5s, box-shadow 0.5s',
+          }}
+        >
+          {/* Animated top accent bar */}
+          <div
+            className="h-[2px] w-full"
+            style={{
+              background: recLoading
+                ? 'linear-gradient(90deg, transparent, #22c55e, #4ade80, #22c55e, transparent)'
+                : 'linear-gradient(90deg, transparent, rgba(34,197,94,0.4), transparent)',
+              backgroundSize: recLoading ? '200% 100%' : '100% 100%',
+              animation: recLoading ? 'wellness-scan 1.4s linear infinite' : 'none',
+            }}
+          />
+
+          {/* Header */}
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(34,197,94,0.08)' }}>
+            <div className="flex items-center gap-2">
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-base"
+                style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}
+              >
+                🌿
+              </div>
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(34,197,94,0.7)' }}>Wellness Agent</p>
+                <p className="text-[8px] uppercase tracking-widest" style={{ color: 'rgba(34,197,94,0.35)' }}>Diet &amp; Exercise AI</p>
+              </div>
+            </div>
+            {recLoading ? (
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-[8px] font-bold uppercase tracking-wider text-emerald-400">Thinking</span>
+              </div>
+            ) : recommendations ? (
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" style={{ boxShadow: '0 0 6px rgba(34,197,94,0.6)' }} />
+                <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: 'rgba(34,197,94,0.6)' }}>Live</span>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Body */}
+          <div className="px-4 py-3 space-y-3 max-h-[420px] overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+
+            {/* Loading placeholder */}
+            {recLoading && !recommendations && (
+              <div className="space-y-2 py-2">
+                <div className="h-2 rounded-full bg-emerald-900/40 animate-pulse w-3/4" />
+                <div className="h-2 rounded-full bg-emerald-900/30 animate-pulse w-full" />
+                <div className="h-2 rounded-full bg-emerald-900/20 animate-pulse w-2/3" />
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!recLoading && !recommendations && (
+              <p className="text-[10px] italic py-2" style={{ color: 'rgba(34,197,94,0.3)' }}>Awaiting first IoT stream poll...</p>
+            )}
+
+            {recommendations && (
+              <>
+                {/* Risk context badges */}
+                {recommendations.risk_context && recommendations.risk_context.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pb-1">
+                    {recommendations.risk_context.map((r: string, i: number) => (
+                      <span
+                        key={i}
+                        className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wide"
+                        style={{
+                          background: r === 'healthy' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                          border: r === 'healthy' ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(239,68,68,0.2)',
+                          color: r === 'healthy' ? '#4ade80' : '#f87171',
+                        }}
+                      >
+                        {r === 'healthy' ? '✓ All Clear' : `⚠ ${r.replace('_', ' ')}`}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* DIET */}
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-[0.25em] mb-1.5" style={{ color: 'rgba(34,197,94,0.5)' }}>— Diet Protocol</p>
+                  <div className="space-y-1.5">
+                    {recommendations.diet?.slice(0, 4).map((item: any, i: number) => (
+                      <div
+                        key={i}
+                        className="flex items-start gap-2 rounded-lg px-2.5 py-2"
+                        style={{ background: 'rgba(34,197,94,0.04)', border: '1px solid rgba(34,197,94,0.07)' }}
+                      >
+                        <div
+                          className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-1"
+                          style={{
+                            backgroundColor:
+                              item.priority === 'high' ? '#22c55e' :
+                              item.priority === 'medium' ? '#eab308' : '#6b7280',
+                            boxShadow:
+                              item.priority === 'high' ? '0 0 6px rgba(34,197,94,0.6)' :
+                              item.priority === 'medium' ? '0 0 6px rgba(234,179,8,0.4)' : 'none',
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold leading-tight" style={{ color: 'rgba(220,252,231,0.85)' }}>{item.item}</p>
+                          <p className="text-[8px] leading-relaxed mt-0.5" style={{ color: 'rgba(134,239,172,0.4)' }}>{item.reason}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* EXERCISE */}
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-[0.25em] mb-1.5" style={{ color: 'rgba(56,189,248,0.5)' }}>— Exercise Protocol</p>
+                  <div className="space-y-1.5">
+                    {recommendations.exercise?.slice(0, 3).map((item: any, i: number) => (
+                      <div
+                        key={i}
+                        className="flex items-start gap-2 rounded-lg px-2.5 py-2"
+                        style={{ background: 'rgba(56,189,248,0.04)', border: '1px solid rgba(56,189,248,0.07)' }}
+                      >
+                        <div
+                          className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-1"
+                          style={{
+                            backgroundColor:
+                              item.intensity === 'low' ? '#38bdf8' :
+                              item.intensity === 'moderate' ? '#818cf8' : '#f472b6',
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold leading-tight" style={{ color: 'rgba(224,242,254,0.85)' }}>{item.item}</p>
+                          <p className="text-[8px] leading-relaxed mt-0.5" style={{ color: 'rgba(125,211,252,0.4)' }}>{item.reason}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AVOID */}
+                {recommendations.avoid && recommendations.avoid.length > 0 && (
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.25em] mb-1.5" style={{ color: 'rgba(248,113,113,0.5)' }}>— Avoid</p>
+                    <div className="flex flex-wrap gap-1">
+                      {recommendations.avoid.slice(0, 4).map((a: string, i: number) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 rounded text-[8px] font-bold"
+                          style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.12)', color: 'rgba(252,165,165,0.7)' }}
+                        >
+                          ✕ {a}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AGENT REASONING — collapsible */}
+                {recommendations.reasoning && (
+                  <div>
+                    <button
+                      id="wellness-agent-reasoning-toggle"
+                      onClick={() => setRecReasoningOpen(v => !v)}
+                      className="flex items-center gap-1.5 w-full text-left py-1 transition-colors"
+                      style={{ color: recReasoningOpen ? 'rgba(167,243,208,0.7)' : 'rgba(34,197,94,0.35)' }}
+                    >
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">{recReasoningOpen ? '▾' : '▸'} Agent Reasoning</span>
+                    </button>
+                    {recReasoningOpen && (
+                      <div
+                        className="rounded-xl px-3 py-2.5 mt-1"
+                        style={{ background: 'rgba(34,197,94,0.04)', border: '1px solid rgba(34,197,94,0.08)' }}
+                      >
+                        <p className="text-[9px] leading-relaxed" style={{ color: 'rgba(167,243,208,0.65)', fontStyle: 'italic' }}>
+                          {recommendations.reasoning}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          {recommendations?.generated_at && (
+            <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(34,197,94,0.06)' }}>
+              <p className="text-[7px] uppercase tracking-widest" style={{ color: 'rgba(34,197,94,0.2)' }}>
+                Updated · {new Date(recommendations.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Keyframe for the wellness scan animation */}
+      <style>{`
+        @keyframes wellness-scan {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+      `}</style>
 
       {/* Put your actual page background content below */}
       <div className="relative z-10 p-8 text-center" />

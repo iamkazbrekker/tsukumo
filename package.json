@@ -10,6 +10,7 @@
     "seed:nutrition": "ts-node --project tsconfig.json scripts/seedNutritionDB.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@types/mongoose": "^5.11.96",
     "mongoose": "^9.4.1",
     "next": "16.2.4",
