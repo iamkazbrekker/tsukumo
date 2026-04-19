@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import ChatBot from '@/components/ChatBot';
 
 // --- THEME DATA: Define the look and feel for each organ ---
 const organThemes: Record<string, any> = {
@@ -140,20 +141,20 @@ const organThemes: Record<string, any> = {
 
 // ── What-If types ─────────────────────────────────────────────────────────
 type ScenarioResult = {
-  scenario:    string;
+  scenario: string;
   description: string;
-  risk_type:   'cardiac' | 'diabetes';
-  mean_risk:   number;
+  risk_type: 'cardiac' | 'diabetes';
+  mean_risk: number;
   p05: number; p95: number;
-  color:       string;
+  color: string;
 };
 
 type WhatIfData = {
-  scenarios:   ScenarioResult[];
-  trajectory:  Record<string, any>[];
-  feature_sensitivity: { cardiac: Record<string,number>; diabetes: Record<string,number> };
-  summary:     string;
-  _mock?:      boolean;
+  scenarios: ScenarioResult[];
+  trajectory: Record<string, any>[];
+  feature_sensitivity: { cardiac: Record<string, number>; diabetes: Record<string, number> };
+  summary: string;
+  _mock?: boolean;
 };
 
 function Page() {
@@ -171,7 +172,7 @@ function Page() {
   const [whatIfLoading, setWhatIfLoading] = useState(false);
   const [whatIfRiskType, setWhatIfRiskType] = useState<'cardiac' | 'diabetes'>('cardiac');
   const [predictionLogs, setPredictionLogs] = useState<any[]>([]);
-  
+
   // Hospital Record State
   const [showHospitalModal, setShowHospitalModal] = useState(false);
   const [hospitalLogging, setHospitalLogging] = useState(false);
@@ -199,16 +200,16 @@ function Page() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'booking' | 'confirmed' | 'failed'>('idle');
   const [finalBookingData, setFinalBookingData] = useState<any>(null);
-   const [lastAutoPoppedReason, setLastAutoPoppedReason] = useState<string | null>(null);
-   const [mutedReasons, setMutedReasons] = useState<string[]>([]);
-   const mutedReasonsRef = useRef<string[]>([]);
-   
-   // Sync ref with state
-   useEffect(() => {
-     mutedReasonsRef.current = mutedReasons;
-   }, [mutedReasons]);
+  const [lastAutoPoppedReason, setLastAutoPoppedReason] = useState<string | null>(null);
+  const [mutedReasons, setMutedReasons] = useState<string[]>([]);
+  const mutedReasonsRef = useRef<string[]>([]);
 
-   const [stressLevel, setStressLevel] = useState(0.1);
+  // Sync ref with state
+  useEffect(() => {
+    mutedReasonsRef.current = mutedReasons;
+  }, [mutedReasons]);
+
+  const [stressLevel, setStressLevel] = useState(0.1);
 
   // --- COGNITIVE HEALTH TWIN STATE ---
   const [showCHTModal, setShowCHTModal] = useState(false);
@@ -220,6 +221,49 @@ function Page() {
   const [compositeRisk, setCompositeRisk] = useState(0);
   const [emergencyOverride, setEmergencyOverride] = useState(false);
   const [emergencyTimeLeft, setEmergencyTimeLeft] = useState(0);
+
+  const handleChatAction = (action: any) => {
+    switch (action.type) {
+      case 'RUN_WHATIF':
+        setInsightsTab('whatif');
+        setShowInsightsModal(true);
+        break;
+      case 'BOOK_APPOINTMENT':
+          setPreppedBooking({
+            specialty: action.props?.doctor || "Specialist Healer",
+            urgency: "Normal",
+            reason: `Appointment requested via Michi Assistant${action.props?.doctor ? ` for ${action.props.doctor}` : ""}.`,
+            recommended_window: "NEXT 24H"
+          });
+        setShowBookingModal(true);
+        break;
+      case 'OPEN_CHT':
+        setShowCHTModal(true);
+        if (!chtData) fetchCHTData();
+        break;
+      case 'FETCH_VITALS':
+        // Highlight vitals or scroll to them? 
+        // For now, let's just show a notification to acknowledge
+        setLiveNotifications(prev => [{
+          icon: '🔍',
+          title: 'Michi Analysis',
+          desc: 'High-fidelity vital stream analysis completed.',
+          time: 'just now',
+          severity: 'ok'
+        }, ...prev].slice(0, 10));
+        break;
+      case 'SEARCH_HOSPITALS':
+        // For now, we can show the hospital record modal as a stand-in or a custom alert
+        setLiveNotifications(prev => [{
+          icon: '🏥',
+          title: 'Nearby Medical Nexus',
+          desc: 'Found 3 facilities within 5km of your location.',
+          time: 'just now',
+          severity: 'info'
+        }, ...prev].slice(0, 10));
+        break;
+    }
+  };
 
   // EMERGENCY IS NOW PURELY MANUAL. NO AUTOMATIC RED PULSE.
   const isEmergency = !!emergencyOverride;
@@ -270,7 +314,7 @@ function Page() {
       // ── UNIFIED DATA GATEWAY ──
       // Both normal streaming AND emergency simulation flow through
       // the exact same processing pipeline below. No module is bypassed.
-      
+
       let data: any = null;
 
       if (emergencyOverride) {
@@ -318,7 +362,7 @@ function Page() {
             `Oxygen saturation dropping critically (${simSpo2}%).`,
             `Blood pressure spike: ${simBP}/118 mmHg.`,
             "Initiating autonomous clinical dispatch...",
-            "Agent 'Vajra' taking command of telemetry node."
+            "Agent 'Michi' taking command of telemetry node."
           ],
           cht: {
             health_tier: 5,
@@ -326,7 +370,7 @@ function Page() {
             analysis: {
               severity: "CRITICAL",
               primary_concern: "Acute Myocardial Infarction (Simulated)",
-              primary_suggestion: "Deploying Vajra Clinical Agent to local triage unit.",
+              primary_suggestion: "Deploying Michi Clinical Agent to local triage unit.",
               narrative: `EMERGENCY OVERRIDE ACTIVE. All automatic monitoring has been superseded by Agentic AI Control. Patient exhibits classic signs of acute heart failure — HR ${simHR}, SpO2 ${simSpo2}%, BP ${simBP}/118. Autonomous dispatch is currently being simulated in the Tsukumo Nexus.`
             },
             retrieval: {
@@ -356,23 +400,23 @@ function Page() {
           return;
         }
       }
-        
+
       // ── SHARED PROCESSING PIPELINE ──
       // Every module reads from the same gateway.
       if (data && !data.error) {
-        if (!emergencyOverride && data.source_file === lastSourceFileRef.current) return; 
+        if (!emergencyOverride && data.source_file === lastSourceFileRef.current) return;
         lastSourceFileRef.current = data.source_file;
 
         // Update Agent States
         if (data.prepped_booking) {
           setPreppedBooking(data.prepped_booking);
-          if (data.prepped_booking.urgency === 'High' && 
-              bookingStatus === 'idle' && 
-              data.prepped_booking.reason !== lastAutoPoppedReason &&
-              !mutedReasonsRef.current.includes(data.prepped_booking.reason)
+          if (data.prepped_booking.urgency === 'High' &&
+            bookingStatus === 'idle' &&
+            data.prepped_booking.reason !== lastAutoPoppedReason &&
+            !mutedReasonsRef.current.includes(data.prepped_booking.reason)
           ) {
-              setShowBookingModal(true);
-              setLastAutoPoppedReason(data.prepped_booking.reason);
+            setShowBookingModal(true);
+            setLastAutoPoppedReason(data.prepped_booking.reason);
           }
         } else if (!emergencyOverride) {
           setPreppedBooking(null);
@@ -405,56 +449,56 @@ function Page() {
           cardiac: preds.cardiac_arrest_risk === 1 ? '!! HIGH RISK !!' : 'STABLE',
           kidney: preds.kidney_stones_risk === 1 ? '!! CALC DETECTED !!' : 'CLEAR',
           resp: preds.respiratory_risk === 1 ? '!! ANOMALY !!' : 'NORMAL',
-          source: emergencyOverride ? 'EMERGENCY' : (data.source_file?.split('_').pop()?.replace('.json','') || 'DRIVE')
+          source: emergencyOverride ? 'EMERGENCY' : (data.source_file?.split('_').pop()?.replace('.json', '') || 'DRIVE')
         };
         setPredictionLogs(prev => [logEntry, ...prev].slice(0, 5));
 
         const newNotifs: any[] = [];
-        
+
         if (data.prepped_booking) {
-           newNotifs.push({
-             icon: emergencyOverride ? '🚨' : '⚕️',
-             title: emergencyOverride ? 'CRITICAL: Agentic AI Takeover' : `Agent: ${data.prepped_booking.specialty} Healer Prep`,
-             desc: data.prepped_booking.reason,
-             time: 'just now',
-             severity: data.prepped_booking.urgency === 'High' ? 'warn' : 'info'
-           });
+          newNotifs.push({
+            icon: emergencyOverride ? '🚨' : '⚕️',
+            title: emergencyOverride ? 'CRITICAL: Agentic AI Takeover' : `Agent: ${data.prepped_booking.specialty} Healer Prep`,
+            desc: data.prepped_booking.reason,
+            time: 'just now',
+            severity: data.prepped_booking.urgency === 'High' ? 'warn' : 'info'
+          });
         }
         if (preds.cardiac_arrest_risk !== undefined) {
-           newNotifs.push({
-             icon: preds.cardiac_arrest_risk > 0 ? '🚨' : '🫀',
-             title: 'Drive: Cardiac Model',
-             desc: preds.cardiac_arrest_risk > 0 ? `CRITICAL CARDIAC RISK — HR: ${Math.round(data.patient_data?.heartRate || 0)} BPM` : 'Cardiac rhythm stable.',
-             time: 'just now',
-             severity: preds.cardiac_arrest_risk > 0 ? 'warn' : 'ok'
-           });
+          newNotifs.push({
+            icon: preds.cardiac_arrest_risk > 0 ? '🚨' : '🫀',
+            title: 'Drive: Cardiac Model',
+            desc: preds.cardiac_arrest_risk > 0 ? `CRITICAL CARDIAC RISK — HR: ${Math.round(data.patient_data?.heartRate || 0)} BPM` : 'Cardiac rhythm stable.',
+            time: 'just now',
+            severity: preds.cardiac_arrest_risk > 0 ? 'warn' : 'ok'
+          });
         }
         if (preds.diabetes_risk !== undefined) {
-           newNotifs.push({
-             icon: preds.diabetes_risk > 0 ? '⚠️' : '💧',
-             title: 'Drive: Diabetes Model',
-             desc: preds.diabetes_risk > 0 ? 'Elevated diabetes risk detected.' : 'Metabolic markers stable in drive stream.',
-             time: 'just now',
-             severity: preds.diabetes_risk > 0 ? 'warn' : 'ok'
-           });
+          newNotifs.push({
+            icon: preds.diabetes_risk > 0 ? '⚠️' : '💧',
+            title: 'Drive: Diabetes Model',
+            desc: preds.diabetes_risk > 0 ? 'Elevated diabetes risk detected.' : 'Metabolic markers stable in drive stream.',
+            time: 'just now',
+            severity: preds.diabetes_risk > 0 ? 'warn' : 'ok'
+          });
         }
         if (preds.kidney_stones_risk !== undefined) {
-           newNotifs.push({
-             icon: preds.kidney_stones_risk > 0 ? '⚠️' : '💎',
-             title: 'Drive: Renal Model',
-             desc: preds.kidney_stones_risk > 0 ? 'Potential calculus (stones) detected in renal scan.' : 'Kidney filtration markers appear clear.',
-             time: 'just now',
-             severity: preds.kidney_stones_risk > 0 ? 'warn' : 'ok'
-           });
+          newNotifs.push({
+            icon: preds.kidney_stones_risk > 0 ? '⚠️' : '💎',
+            title: 'Drive: Renal Model',
+            desc: preds.kidney_stones_risk > 0 ? 'Potential calculus (stones) detected in renal scan.' : 'Kidney filtration markers appear clear.',
+            time: 'just now',
+            severity: preds.kidney_stones_risk > 0 ? 'warn' : 'ok'
+          });
         }
         if (preds.respiratory_risk !== undefined) {
-           newNotifs.push({
-             icon: preds.respiratory_risk > 0 ? '⚠️' : '🌬️',
-             title: 'Drive: Respiratory Model',
-             desc: preds.respiratory_risk > 0 ? `Respiratory failure — SpO2: ${Math.round(data.patient_data?.spo2 || 0)}%` : 'Breath patterns synchronized with baseline.',
-             time: 'just now',
-             severity: preds.respiratory_risk > 0 ? 'warn' : 'ok'
-           });
+          newNotifs.push({
+            icon: preds.respiratory_risk > 0 ? '⚠️' : '🌬️',
+            title: 'Drive: Respiratory Model',
+            desc: preds.respiratory_risk > 0 ? `Respiratory failure — SpO2: ${Math.round(data.patient_data?.spo2 || 0)}%` : 'Breath patterns synchronized with baseline.',
+            time: 'just now',
+            severity: preds.respiratory_risk > 0 ? 'warn' : 'ok'
+          });
         }
         if (preds.burnout_risk !== undefined) {
           newNotifs.push({
@@ -464,10 +508,10 @@ function Page() {
             time: 'just now',
             severity: preds.burnout_risk > 0 ? 'warn' : 'ok'
           });
-       }
-        
+        }
+
         if (newNotifs.length > 0) {
-           setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 10));
+          setLiveNotifications(prev => [...newNotifs, ...prev].slice(0, 10));
         }
       }
     };
@@ -505,9 +549,9 @@ function Page() {
         prevalentHyp: 1, diabetes: 0, currentSmoker: 0,
       };
       const res = await fetch('/api/whatif', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ patient: { ...defaultPatient, ...patientOverride }, n: 3000, weeks: 24 }),
+        body: JSON.stringify({ patient: { ...defaultPatient, ...patientOverride }, n: 3000, weeks: 24 }),
       });
       if (res.ok) setWhatIfData(await res.json());
     } catch (e) {
@@ -573,13 +617,13 @@ function Page() {
         const isCritical = hr > 110 || risk === 1;
         theme.stats[0] = { label: "ML: Cardiac Risk", value: risk === 1 ? 'ELEVATED' : 'STABLE', unit: `Level ${risk || 0}`, status: risk === 1 ? "WARN" : "OK" };
         theme.stats[1] = { label: "Heart Rate", value: Math.round(hr).toString(), unit: "BPM", status: hr > 100 ? "WARN" : "OK" };
-        if (isCritical) { 
-          theme.color = 'red'; 
+        if (isCritical) {
+          theme.color = 'red';
           theme.accent = "text-red-500";
           theme.bg = "bg-red-500/20";
           theme.border = "border-red-500/60";
           theme.glow = "shadow-[0_0_80px_rgba(220,38,38,0.5)]";
-          theme.description = hr > 130 ? "CRITICAL: Tachycardic crisis detected. Hemodynamic instability imminent." : "Elevated hemodynamic stress pattern detected via predictive models."; 
+          theme.description = hr > 130 ? "CRITICAL: Tachycardic crisis detected. Hemodynamic instability imminent." : "Elevated hemodynamic stress pattern detected via predictive models.";
         }
       }
       else if (regionId === 'left-lung' || regionId === 'right-lung') {
@@ -590,24 +634,24 @@ function Page() {
         theme.stats[0] = { label: "ML: Respiratory", value: risk === 1 ? 'ANOMALY' : 'CLEAR', unit: `Level ${risk || 0}`, status: risk === 1 ? "WARN" : "OK" };
         theme.stats[1] = { label: "Blood Oxygen", value: Math.round(spo2).toString(), unit: "% SpO2", status: spo2 < 94 ? "WARN" : "OK" };
         theme.stats[2] = { label: "Breath Rate", value: Math.round(rr).toString(), unit: "/min", status: rr > 20 ? "WARN" : "OK" };
-        if (isCritical) { 
-          theme.color = 'amber'; 
+        if (isCritical) {
+          theme.color = 'amber';
           theme.accent = "text-amber-400";
           theme.bg = "bg-amber-500/20";
           theme.border = "border-amber-500/60";
           theme.glow = "shadow-[0_0_80px_rgba(245,158,11,0.5)]";
-          theme.description = spo2 < 90 ? "CRITICAL: Hypoxia detected. Respiratory failure protocol advised." : "Respiratory restriction or anomaly identified by NLP diagnostic inference."; 
+          theme.description = spo2 < 90 ? "CRITICAL: Hypoxia detected. Respiratory failure protocol advised." : "Respiratory restriction or anomaly identified by NLP diagnostic inference.";
         }
       }
       else if (regionId === 'left-kidney' || regionId === 'right-kidney') {
         const risk = latestInsights.kidney_stones_risk;
         theme.stats[0] = { label: "ML: Renal Calculus", value: risk === 1 ? 'DETECTED' : 'CLEAR', unit: `Level ${risk || 0}`, status: risk === 1 ? "WARN" : "OK" };
-        if (risk > 0) { 
-          theme.color = 'indigo'; 
+        if (risk > 0) {
+          theme.color = 'indigo';
           theme.accent = "text-indigo-400";
           theme.border = "border-indigo-500/60";
           theme.glow = "shadow-[0_0_60px_rgba(99,102,241,0.4)]";
-          theme.description = "Renal predictive module indicates high probability of calculus formation."; 
+          theme.description = "Renal predictive module indicates high probability of calculus formation.";
         }
       }
       else if (regionId === 'stomach') {
@@ -692,7 +736,7 @@ function Page() {
 
     const isCropped = !!theme.cropSide;
     const isJpg = theme.icon.endsWith('.jpg');
-    
+
     // Use a more appropriate blend mode for Thangka JPEGs on light backgrounds
     const blendMode = forceBlend || (isJpg ? 'multiply' : 'screen');
 
@@ -735,7 +779,7 @@ function Page() {
 
       {/* Emergency Alert Outline - PURELY MANUAL TRIGGER */}
       {isEmergency && (
-        <div 
+        <div
           className="emergency-outline opacity-100"
         />
       )}
@@ -743,9 +787,9 @@ function Page() {
 
       {/* Updated Thangka Health Twin Logo (Top Left) */}
       <div className="fixed top-6 left-8 z-[150] flex flex-col items-start gap-0.5 pointer-events-none group transition-all duration-500">
-        <img 
-          src="/assets/thangka/logo.png" 
-          alt="Tsukumo Logo" 
+        <img
+          src="/assets/thangka/logo.png"
+          alt="Tsukumo Logo"
           className="h-10 w-auto drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] brightness-110 contrast-110"
         />
         <div className="flex items-center gap-1.5 ml-2 mt-[-4px]">
@@ -756,7 +800,7 @@ function Page() {
 
 
       {/* Golden Hand-Carved Button */}
-      <button 
+      <button
         onClick={() => setShowHospitalModal(true)}
         className="fixed top-6 right-8 z-[150] w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95"
         style={{
@@ -783,32 +827,32 @@ function Page() {
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            
+
             <form onSubmit={handleHospitalSubmit} className="space-y-4">
               <div className="flex gap-4">
                 <div className="flex-1 space-y-1">
                   <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Patient ID</label>
-                  <input type="text" value={hospitalForm.patientId} onChange={e => setHospitalForm({...hospitalForm, patientId: e.target.value})} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
+                  <input type="text" value={hospitalForm.patientId} onChange={e => setHospitalForm({ ...hospitalForm, patientId: e.target.value })} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
                 </div>
                 <div className="flex-1 space-y-1">
                   <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Provider</label>
-                  <input type="text" value={hospitalForm.hospital} onChange={e => setHospitalForm({...hospitalForm, hospital: e.target.value})} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
+                  <input type="text" value={hospitalForm.hospital} onChange={e => setHospitalForm({ ...hospitalForm, hospital: e.target.value })} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
                 </div>
               </div>
-              
+
               <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Primary Diagnosis</label>
-                <input type="text" value={hospitalForm.diagnosis} onChange={e => setHospitalForm({...hospitalForm, diagnosis: e.target.value})} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
+                <input type="text" value={hospitalForm.diagnosis} onChange={e => setHospitalForm({ ...hospitalForm, diagnosis: e.target.value })} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Prescriptions / Rx</label>
-                <input type="text" value={hospitalForm.prescriptions} onChange={e => setHospitalForm({...hospitalForm, prescriptions: e.target.value})} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
+                <input type="text" value={hospitalForm.prescriptions} onChange={e => setHospitalForm({ ...hospitalForm, prescriptions: e.target.value })} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Clinical Notes</label>
-                <textarea value={hospitalForm.notes} onChange={e => setHospitalForm({...hospitalForm, notes: e.target.value})} rows={3} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none resize-none" />
+                <textarea value={hospitalForm.notes} onChange={e => setHospitalForm({ ...hospitalForm, notes: e.target.value })} rows={3} className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-sm text-zinc-200 focus:border-yellow-500/50 outline-none resize-none" />
               </div>
 
               <button type="submit" disabled={hospitalLogging} className="w-full mt-4 py-3 rounded-lg font-bold text-sm shadow-md transition-all active:scale-[0.98] disabled:opacity-50"
@@ -833,27 +877,26 @@ function Page() {
                         recommendation: 'Simulated intervention. Dashboard showing red alert. 30s remaining.',
                         vitals: { heartRate: 185, spo2: 82, resp_rate: 34, glucose: 240 }
                       })
-                    }).catch(() => {});
+                    }).catch(() => { });
 
-                     setEmergencyTimeLeft(30);
-                     const timer = setInterval(() => {
-                       setEmergencyTimeLeft(prev => {
-                         if (prev <= 1) {
-                           clearInterval(timer);
-                           setEmergencyOverride(false);
-                           setMutedReasons([]); // Reset suppression so future simulations can trigger alerts again
-                           return 0;
-                         }
-                         return prev - 1;
-                       });
-                     }, 1000);
-                   }}
-                   disabled={emergencyOverride}
-                  className={`w-full py-3 rounded-lg font-bold text-sm border transition-all ${
-                    emergencyOverride 
-                    ? 'border-red-500/50 bg-red-500/10 text-red-500 cursor-not-allowed' 
+                    setEmergencyTimeLeft(30);
+                    const timer = setInterval(() => {
+                      setEmergencyTimeLeft(prev => {
+                        if (prev <= 1) {
+                          clearInterval(timer);
+                          setEmergencyOverride(false);
+                          setMutedReasons([]); // Reset suppression so future simulations can trigger alerts again
+                          return 0;
+                        }
+                        return prev - 1;
+                      });
+                    }, 1000);
+                  }}
+                  disabled={emergencyOverride}
+                  className={`w-full py-3 rounded-lg font-bold text-sm border transition-all ${emergencyOverride
+                    ? 'border-red-500/50 bg-red-500/10 text-red-500 cursor-not-allowed'
                     : 'border-red-600/30 bg-red-950/20 text-red-400 hover:bg-red-600/20 hover:border-red-600/60'
-                  }`}
+                    }`}
                 >
                   {emergencyOverride ? `EMERGENCY ACTIVE (${emergencyTimeLeft}s)` : '🔥 Simulate Cardiac Arrest (30s)'}
                 </button>
@@ -867,7 +910,7 @@ function Page() {
       )}
 
       {/* ======== NOTIFICATION SCROLL — Left Side ======== */}
-      <div className="fixed left-6 top-1/2 -translate-y-1/2 z-[120] w-[260px] flex flex-col items-center" style={{ perspective: '800px' }}>
+      <div className="fixed left-25 top-75 -translate-y-1/2 z-[120] w-[260px] flex flex-col items-center" style={{ perspective: '800px' }}>
 
         {/* Top Roller */}
         <div className="h-5 w-[108%] notif-roller rounded-full z-30 relative flex items-center justify-between">
@@ -964,16 +1007,16 @@ function Page() {
         </div>
       </div>
 
-      <div 
-        style={{ 
-          position: "fixed", 
-          top: overlayConfig.top, 
-          left: overlayConfig.left, 
-          transform: overlayConfig.transform, 
-          width: overlayConfig.width, 
-          height: overlayConfig.height, 
-          zIndex: overlayConfig.zIndex 
-        }} 
+      <div
+        style={{
+          position: "fixed",
+          top: overlayConfig.top,
+          left: overlayConfig.left,
+          transform: overlayConfig.transform,
+          width: overlayConfig.width,
+          height: overlayConfig.height,
+          zIndex: overlayConfig.zIndex
+        }}
         className="relative drop-shadow-2xl cursor-none"
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHoveringBody(true)}
@@ -983,25 +1026,25 @@ function Page() {
         }}
       >
         <img src={overlayConfig.src} alt="Human Overlay" style={{ width: "100%", height: "100%", objectFit: "contain" }} className="pointer-events-none" />
-        
+
         {/* HIT AREAS */}
         {regions.map((region) => (
-          <div 
-            key={region.id} 
-            onMouseEnter={() => handleMouseEnter(region.id)} 
-            onMouseLeave={handleMouseLeave} 
-            onClick={() => region.isSpecial && setSelectedRegion(region.id)} 
-            className="absolute cursor-pointer border border-transparent rounded-lg hover:bg-white/5 transition-colors duration-200 z-[60]" 
+          <div
+            key={region.id}
+            onMouseEnter={() => handleMouseEnter(region.id)}
+            onMouseLeave={handleMouseLeave}
+            onClick={() => region.isSpecial && setSelectedRegion(region.id)}
+            className="absolute cursor-pointer border border-transparent rounded-lg hover:bg-white/5 transition-colors duration-200 z-[60]"
             style={region.overlayStyle}
           />
         ))}
 
         {/* DYNAMIC MAGNIFYING LENS */}
         {isHoveringBody && (
-          <div 
+          <div
             className="pointer-events-none absolute z-[100] transition-opacity duration-300"
-            style={{ 
-              left: `${mousePos.x}px`, 
+            style={{
+              left: `${mousePos.x}px`,
               top: `${mousePos.y}px`,
               opacity: isHoveringBody ? 1 : 0,
               transform: `translate(-50%, -50%) perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
@@ -1012,11 +1055,11 @@ function Page() {
               <div className="lens-glass" />
               <div className="lens-glare" />
               <div className="lens-glare-secondary" />
-              
+
               {/* Metallic Glints */}
               <div className="lens-glint top-[20%] left-[25%]" />
               <div className="lens-glint top-[15%] left-[20%] scale-50 opacity-50" />
-              
+
               {/* Magnified Content Reveal */}
               <div className="lens-magnified-content flex items-center justify-center">
                 {hoveredRegion && getDynamicOrganTheme(hoveredRegion) ? (
@@ -1025,22 +1068,22 @@ function Page() {
                     if (!region) return null;
 
                     const containerWidth = 450;
-                    const containerHeight = 600; 
-                    
+                    const containerHeight = 600;
+
                     const regionLeft = parseFloat(region.overlayStyle.left) / 100 * containerWidth;
                     const regionTop = parseFloat(region.overlayStyle.top) / 100 * containerHeight;
                     const regionWidth = parseFloat(region.overlayStyle.width) / 100 * containerWidth;
                     const regionHeight = parseFloat(region.overlayStyle.height) / 100 * containerHeight;
-                    
+
                     const centerX = regionLeft + regionWidth / 2;
                     const centerY = regionTop + regionHeight / 2;
-                    
+
                     const offsetX = (centerX - mousePos.x) * 1.6;
                     const offsetY = (centerY - mousePos.y) * 1.6;
 
                     return renderThangkaIcon(
-                      getDynamicOrganTheme(hoveredRegion), 
-                      "w-16 h-16", 
+                      getDynamicOrganTheme(hoveredRegion),
+                      "w-16 h-16",
                       getDynamicOrganTheme(hoveredRegion).icon.endsWith('.jpg') ? 'screen' : undefined,
                       { x: offsetX, y: offsetY }
                     );
@@ -1049,16 +1092,16 @@ function Page() {
                   <div className="w-full h-full bg-white/5 backdrop-blur-[2px]" />
                 )}
               </div>
-              
+
               {/* Advanced Chromatic Aberration Layers */}
               <div className="absolute inset-0 rounded-full border border-cyan-400/20 mix-blend-screen scale-[1.01] blur-[1px]" />
               <div className="absolute inset-0 rounded-full border border-red-400/20 mix-blend-screen scale-[0.99] blur-[1px]" />
               <div className="absolute inset-0 rounded-full border border-amber-300/10 mix-blend-overlay scale-[1.03]" />
             </div>
-            
+
             {/* Exterior Glow Aura */}
             <div className="absolute inset-0 bg-amber-200/5 blur-3xl rounded-full -z-10" />
-            
+
             {/* Premium Antique Handle */}
             <div className="absolute top-[85%] left-1/2 -translate-x-1/2 w-6 h-20 lens-handle flex flex-col items-center origin-top rotate-[12deg]">
               {/* Golden Ferrule (Neck) */}
@@ -1075,33 +1118,33 @@ function Page() {
       <div className="fixed bottom-10 left-10 z-[150] flex gap-3">
         {/* Doctor Appointment Button */}
         {preppedBooking && !mutedReasons.includes(preppedBooking.reason) && (
-        <button 
-          onClick={() => setShowBookingModal(true)}
-          className={`
+          <button
+            onClick={() => setShowBookingModal(true)}
+            className={`
             group relative flex items-center gap-3 px-6 py-4 rounded-2xl 
             bg-gradient-to-br from-amber-900/80 to-stone-900/90 
             border border-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.1)]
             hover:border-amber-400/60 hover:shadow-[0_0_40px_rgba(245,158,11,0.2)]
             transition-all duration-500 overflow-hidden
           `}
-        >
-          <div className="absolute inset-0 bg-[url('/assets/thangka/paper-texture.png')] opacity-10 mix-blend-overlay" />
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 group-hover:scale-110 transition-transform">
-             <span className="text-xl">⚕️</span>
-          </div>
-          <div className="relative text-left">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 opacity-80">Autonomous Care</p>
-            <h3 className="text-sm font-bold text-amber-100 tracking-wide">Doctor Appointment</h3>
-          </div>
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center">
-            <div className="w-1.5 h-1.5 bg-white rounded-full" />
-          </div>
-        </button>
+          >
+            <div className="absolute inset-0 bg-[url('/assets/thangka/paper-texture.png')] opacity-10 mix-blend-overlay" />
+            <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 group-hover:scale-110 transition-transform">
+              <span className="text-xl">⚕️</span>
+            </div>
+            <div className="relative text-left">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 opacity-80">Autonomous Care</p>
+              <h3 className="text-sm font-bold text-amber-100 tracking-wide">Doctor Appointment</h3>
+            </div>
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center">
+              <div className="w-1.5 h-1.5 bg-white rounded-full" />
+            </div>
+          </button>
         )}
 
         {/* Cognitive Health Twin Button */}
-        <button 
+        <button
           onClick={() => { setShowCHTModal(true); fetchCHTData(); }}
           className={`
             group relative flex items-center gap-3 px-6 py-4 rounded-2xl 
@@ -1135,7 +1178,7 @@ function Page() {
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
           <div className="relative w-full max-w-2xl bg-stone-950 border border-amber-900/50 rounded-[2.5rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)]">
             <div className="absolute inset-0 bg-[url('/assets/thangka/paper-texture.png')] opacity-5 pointer-events-none" />
-            
+
             {/* Header */}
             <div className="relative p-8 border-b border-amber-900/20 bg-gradient-to-b from-amber-900/5 to-transparent">
               <div className="flex justify-between items-center">
@@ -1175,16 +1218,16 @@ function Page() {
                 {preppedBooking ? (
                   <>
                     <div className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-6 relative overflow-hidden group">
-                       <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                         <span className="text-6xl">✨</span>
-                       </div>
-                       <div className="relative z-10">
-                         <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 ${preppedBooking.urgency === 'High' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
-                           {preppedBooking.urgency} Urgency
-                         </span>
-                         <h3 className="text-xl font-bold text-white mb-2">{preppedBooking.specialty} Specialist</h3>
-                         <p className="text-sm text-stone-400 leading-relaxed italic">"{preppedBooking.reason}"</p>
-                       </div>
+                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <span className="text-6xl">✨</span>
+                      </div>
+                      <div className="relative z-10">
+                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 ${preppedBooking.urgency === 'High' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                          {preppedBooking.urgency} Urgency
+                        </span>
+                        <h3 className="text-xl font-bold text-white mb-2">{preppedBooking.specialty} Specialist</h3>
+                        <p className="text-sm text-stone-400 leading-relaxed italic">"{preppedBooking.reason}"</p>
+                      </div>
                     </div>
 
                     <div>
@@ -1204,7 +1247,7 @@ function Page() {
                     <div className="w-16 h-16 rounded-full bg-stone-900 flex items-center justify-center text-3xl opacity-50">
                       ⚖️
                     </div>
-                    <p className="text-stone-500 text-sm">Vitals are currently in harmonized state.<br/>Manual booking is available if needed.</p>
+                    <p className="text-stone-500 text-sm">Vitals are currently in harmonized state.<br />Manual booking is available if needed.</p>
                   </div>
                 )}
               </div>
@@ -1212,41 +1255,41 @@ function Page() {
 
             {/* Footer Actions */}
             <div className="p-8 pt-0 flex gap-4">
-              <button 
+              <button
                 disabled={!preppedBooking || bookingStatus === 'booking'}
-                  onClick={async () => {
-                    setBookingStatus('booking');
-                    try {
-                      const res = await fetch('http://127.0.0.1:5000/confirm-booking', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                              booking_id: `HEART-REQ-${Date.now()}`,
-                              preferred_time_window: preppedBooking?.recommended_window || 'Normal'
-                          })
-                      });
-                      const result = await res.json();
-                      setFinalBookingData(result);
-                      setBookingStatus('confirmed');
-                      if (preppedBooking?.reason) {
-                        setMutedReasons(prev => [...prev, preppedBooking.reason]);
-                      }
-                    } catch (e) {
-                      setBookingStatus('failed');
+                onClick={async () => {
+                  setBookingStatus('booking');
+                  try {
+                    const res = await fetch('http://127.0.0.1:5000/confirm-booking', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        booking_id: `HEART-REQ-${Date.now()}`,
+                        preferred_time_window: preppedBooking?.recommended_window || 'Normal'
+                      })
+                    });
+                    const result = await res.json();
+                    setFinalBookingData(result);
+                    setBookingStatus('confirmed');
+                    if (preppedBooking?.reason) {
+                      setMutedReasons(prev => [...prev, preppedBooking.reason]);
                     }
-                  }}
-                  className={`flex-[2] py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-sm transition-all duration-500 ${!preppedBooking ? 'bg-stone-900 text-stone-700 cursor-not-allowed' : 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] shadow-lg'}`}
-                >
-                  {bookingStatus === 'booking' ? 'Invoking Sacred Healer...' : bookingStatus === 'confirmed' ? 'Successfully Linked' : 'Confirm Healer Appointment'}
-                </button>
-                <button onClick={() => {
-                  setShowBookingModal(false);
-                  if (preppedBooking?.reason) {
-                    setMutedReasons(prev => [...prev, preppedBooking.reason]);
+                  } catch (e) {
+                    setBookingStatus('failed');
                   }
-                }} className="flex-1 py-4 rounded-2xl bg-stone-900 border border-stone-800 text-stone-400 font-bold uppercase tracking-[0.1em] text-xs hover:text-white transition-all">
-                  Dismiss
-                </button>
+                }}
+                className={`flex-[2] py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-sm transition-all duration-500 ${!preppedBooking ? 'bg-stone-900 text-stone-700 cursor-not-allowed' : 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] shadow-lg'}`}
+              >
+                {bookingStatus === 'booking' ? 'Invoking Sacred Healer...' : bookingStatus === 'confirmed' ? 'Successfully Linked' : 'Confirm Healer Appointment'}
+              </button>
+              <button onClick={() => {
+                setShowBookingModal(false);
+                if (preppedBooking?.reason) {
+                  setMutedReasons(prev => [...prev, preppedBooking.reason]);
+                }
+              }} className="flex-1 py-4 rounded-2xl bg-stone-900 border border-stone-800 text-stone-400 font-bold uppercase tracking-[0.1em] text-xs hover:text-white transition-all">
+                Dismiss
+              </button>
             </div>
 
             {/* Success Overlay */}
@@ -1257,18 +1300,18 @@ function Page() {
                 </div>
                 <h2 className="text-3xl font-bold text-white mb-2">Appointment Harmonized</h2>
                 <p className="text-amber-500 font-bold tracking-widest uppercase text-[10px] mb-8">Booking ID: {finalBookingData.booking_id}</p>
-                
+
                 <div className="bg-stone-900 border border-amber-900/30 rounded-3xl p-6 w-full max-w-sm mb-8">
                   <p className="text-stone-400 text-xs uppercase tracking-widest mb-1">Your assigned healer</p>
-                  <p className="text-xl font-bold text-amber-50 mb-4">{finalBookingData.healer_name}</p>
+                  <p className="text-xl font-bold text-amber-50 mb-4">{preppedBooking?.specialty || finalBookingData.healer_name || "Specialist Healer"}</p>
                   <div className="flex justify-between items-center text-sm border-t border-white/5 pt-4">
                     <span className="text-stone-500">Scheduled Time</span>
                     <span className="text-white font-mono">{new Date(finalBookingData.time).toLocaleString()}</span>
                   </div>
-                  
+
                   {finalBookingData.calendar_ics && (
-                  <div className="flex flex-col gap-2 border-t border-white/5 mt-4 pt-4">
-                     <button onClick={() => {
+                    <div className="flex flex-col gap-2 border-t border-white/5 mt-4 pt-4">
+                      <button onClick={() => {
                         const blob = new Blob([finalBookingData.calendar_ics], { type: 'text/calendar' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
@@ -1276,10 +1319,10 @@ function Page() {
                         a.download = `Tsukumo_Appointment_${finalBookingData.booking_id}.ics`;
                         a.click();
                         URL.revokeObjectURL(url);
-                     }} className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors">
-                       📅 Build & Download Calendar (.ics)
-                     </button>
-                     <button onClick={() => {
+                      }} className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors">
+                        📅 Build & Download Calendar (.ics)
+                      </button>
+                      <button onClick={() => {
                         const blob = new Blob([JSON.stringify(finalBookingData.ticket_details, null, 2)], { type: 'application/json' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
@@ -1287,10 +1330,10 @@ function Page() {
                         a.download = `DispatchTicket_${finalBookingData.booking_id}.json`;
                         a.click();
                         URL.revokeObjectURL(url);
-                     }} className="w-full py-2 rounded-lg bg-stone-700 hover:bg-stone-600 text-amber-400 font-bold text-xs transition-colors flex justify-center items-center gap-1">
-                       <span className="text-base">🎟️</span> Generate Dispatch Ticket
-                     </button>
-                     <button onClick={() => {
+                      }} className="w-full py-2 rounded-lg bg-stone-700 hover:bg-stone-600 text-amber-400 font-bold text-xs transition-colors flex justify-center items-center gap-1">
+                        <span className="text-base">🎟️</span> Generate Dispatch Ticket
+                      </button>
+                      <button onClick={() => {
                         const blob = new Blob([finalBookingData.mock_email_sent], { type: 'text/plain' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
@@ -1298,10 +1341,10 @@ function Page() {
                         a.download = `Automated_Email_${finalBookingData.booking_id}.txt`;
                         a.click();
                         URL.revokeObjectURL(url);
-                     }} className="w-full py-2 rounded-lg bg-stone-700 hover:bg-stone-600 text-emerald-400 font-bold text-xs transition-colors flex justify-center items-center gap-1">
-                       <span className="text-base">📧</span> Request Simulated Dispatch Email
-                     </button>
-                  </div>
+                      }} className="w-full py-2 rounded-lg bg-stone-700 hover:bg-stone-600 text-emerald-400 font-bold text-xs transition-colors flex justify-center items-center gap-1">
+                        <span className="text-base">📧</span> Request Simulated Dispatch Email
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -1320,20 +1363,20 @@ function Page() {
           <div className="relative w-full max-w-2xl bg-stone-950 border border-stone-800 rounded-3xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="absolute inset-0 bg-[url('/assets/thangka/paper-texture.png')] opacity-10 mix-blend-overlay pointer-events-none" />
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-stone-600 via-amber-700 to-stone-600 opacity-80" />
-            
+
             <div className="p-8 pb-4 flex justify-between items-start">
-               <div className="flex items-center gap-4">
-                  <div className={`p-2 rounded-xl bg-stone-900 border border-stone-800`}>
-                     {renderThangkaIcon(selectedTheme, "w-12 h-12")}
-                  </div>
-                  <div>
-                    <h2 className={`text-2xl font-bold tracking-tight text-white`}>{selectedTheme.title}</h2>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500 mt-1">{selectedTheme.subtitle}</p>
-                  </div>
-               </div>
-               <button onClick={() => setSelectedRegion(null)} className="p-2 rounded-full hover:bg-stone-900 text-stone-500 hover:text-white transition-colors">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-               </button>
+              <div className="flex items-center gap-4">
+                <div className={`p-2 rounded-xl bg-stone-900 border border-stone-800`}>
+                  {renderThangkaIcon(selectedTheme, "w-12 h-12")}
+                </div>
+                <div>
+                  <h2 className={`text-2xl font-bold tracking-tight text-white`}>{selectedTheme.title}</h2>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500 mt-1">{selectedTheme.subtitle}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedRegion(null)} className="p-2 rounded-full hover:bg-stone-900 text-stone-500 hover:text-white transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
 
             <div className="p-8 pt-4">
@@ -1346,26 +1389,26 @@ function Page() {
 
               <div className="grid grid-cols-2 gap-4">
                 {selectedTheme.stats && selectedTheme.stats.map((stat: any, idx: number) => (
-                   <div key={idx} className="bg-stone-900/60 border border-stone-800 rounded-2xl p-4 relative overflow-hidden">
-                      <div className="absolute inset-0 opacity-5 mix-blend-overlay" style={{ backgroundColor: selectedTheme.color || 'white' }} />
-                      <div className="flex justify-between items-start mb-2 relative z-10">
-                         <span className="text-[10px] font-black tracking-widest uppercase text-stone-500">{stat.label}</span>
-                         <span className={`text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm ${stat.status?.includes('WARN') || stat.status?.includes('ELEVATED') || stat.status?.includes('HIGH') || stat.status?.includes('ANOMALY') || stat.status?.includes('DETECTED') || stat.status?.includes('EXHAUSTION') ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>{stat.status || 'NORMAL'}</span>
-                      </div>
-                      <div className="flex items-baseline gap-1 relative z-10">
-                         <span className="text-3xl font-black text-white">{stat.value}</span>
-                         {stat.unit && <span className="text-xs font-bold text-stone-400">{stat.unit}</span>}
-                      </div>
-                   </div>
+                  <div key={idx} className="bg-stone-900/60 border border-stone-800 rounded-2xl p-4 relative overflow-hidden">
+                    <div className="absolute inset-0 opacity-5 mix-blend-overlay" style={{ backgroundColor: selectedTheme.color || 'white' }} />
+                    <div className="flex justify-between items-start mb-2 relative z-10">
+                      <span className="text-[10px] font-black tracking-widest uppercase text-stone-500">{stat.label}</span>
+                      <span className={`text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm ${stat.status?.includes('WARN') || stat.status?.includes('ELEVATED') || stat.status?.includes('HIGH') || stat.status?.includes('ANOMALY') || stat.status?.includes('DETECTED') || stat.status?.includes('EXHAUSTION') ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>{stat.status || 'NORMAL'}</span>
+                    </div>
+                    <div className="flex items-baseline gap-1 relative z-10">
+                      <span className="text-3xl font-black text-white">{stat.value}</span>
+                      {stat.unit && <span className="text-xs font-bold text-stone-400">{stat.unit}</span>}
+                    </div>
+                  </div>
                 ))}
               </div>
-              
+
               <div className="mt-8 pt-4 border-t border-stone-800/50 flex justify-between items-center">
-                 <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-2">
-                   <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                   Live Bio-Telemetry Stream Active
-                 </span>
-                 <span className="text-[10px] font-mono text-stone-600 tracking-wider">ID: THNGK-{selectedRegion.toUpperCase()}</span>
+                <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Live Bio-Telemetry Stream Active
+                </span>
+                <span className="text-[10px] font-mono text-stone-600 tracking-wider">ID: THNGK-{selectedRegion.toUpperCase()}</span>
               </div>
             </div>
           </div>
@@ -1592,7 +1635,7 @@ function Page() {
       >
 
 
-        <div 
+        <div
           className="relative pointer-events-auto cursor-pointer drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:scale-105 transition-all duration-300 group mt-4"
           onClick={() => setShowInsightsModal(true)}
         >
@@ -1604,7 +1647,7 @@ function Page() {
           <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity animate-pulse pointer-events-none" />
         </div>
       </div>
-      
+
       {/* ML Insights Modal */}
       {showInsightsModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity animate-fade-in" onClick={() => setShowInsightsModal(false)}>
@@ -1630,20 +1673,18 @@ function Page() {
                 <button
                   id="tab-diagnostics"
                   onClick={() => setInsightsTab('diagnostics')}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                    insightsTab === 'diagnostics'
-                      ? 'bg-blue-600 text-white shadow-[0_0_12px_rgba(59,130,246,0.4)]'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${insightsTab === 'diagnostics'
+                    ? 'bg-blue-600 text-white shadow-[0_0_12px_rgba(59,130,246,0.4)]'
+                    : 'text-zinc-400 hover:text-white'
+                    }`}
                 >🔬 Diagnostics</button>
                 <button
                   id="tab-whatif"
                   onClick={() => { setInsightsTab('whatif'); if (!whatIfData && !whatIfLoading) fetchWhatIf(); }}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                    insightsTab === 'whatif'
-                      ? 'bg-violet-600 text-white shadow-[0_0_12px_rgba(139,92,246,0.4)]'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${insightsTab === 'whatif'
+                    ? 'bg-violet-600 text-white shadow-[0_0_12px_rgba(139,92,246,0.4)]'
+                    : 'text-zinc-400 hover:text-white'
+                    }`}
                 >🎲 What-If Simulator</button>
               </div>
             </div>
@@ -1807,15 +1848,15 @@ function Page() {
                     const filtered = whatIfData.scenarios.filter(s => s.risk_type === whatIfRiskType);
                     const baseline = filtered.find(s => s.scenario === 'Current Trajectory');
                     const baseRisk = baseline?.mean_risk ?? 0;
-                    const MAX_BAR  = Math.max(...filtered.map(s => s.p95), 0.01);
+                    const MAX_BAR = Math.max(...filtered.map(s => s.p95), 0.01);
 
                     // Trajectory lines (first 4 scenarios)
                     const trajScenarios = ['Current Trajectory', 'Run 3× / Week', 'Full Lifestyle Optimisation', 'No Sodium Reduction'];
-                    const TRAJ_COLORS: Record<string,string> = {
-                      'Current Trajectory':          '#7b7bff',
-                      'Run 3× / Week':               '#2ecc71',
+                    const TRAJ_COLORS: Record<string, string> = {
+                      'Current Trajectory': '#7b7bff',
+                      'Run 3× / Week': '#2ecc71',
                       'Full Lifestyle Optimisation': '#00e5ff',
-                      'No Sodium Reduction':         '#e74c3c',
+                      'No Sodium Reduction': '#e74c3c',
                     };
 
                     const trajPoints = whatIfData.trajectory ?? [];
@@ -1825,7 +1866,7 @@ function Page() {
                     ), 0.01);
 
                     const toX = (week: number) => (week / 24) * W;
-                    const toY = (r: number)    => H - (r / maxRisk) * (H - 10) - 5;
+                    const toY = (r: number) => H - (r / maxRisk) * (H - 10) - 5;
 
                     const makePath = (sc: string) =>
                       trajPoints.map((pt: any, i: number) => {
@@ -1852,13 +1893,12 @@ function Page() {
                               key={rt}
                               id={`whatif-toggle-${rt}`}
                               onClick={() => setWhatIfRiskType(rt)}
-                              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                                whatIfRiskType === rt
-                                  ? rt === 'cardiac'
-                                    ? 'bg-red-500/20 border-red-500/50 text-red-300'
-                                    : 'bg-blue-500/20 border-blue-500/50 text-blue-300'
-                                  : 'bg-zinc-800/50 border-zinc-700 text-zinc-500 hover:text-zinc-300'
-                              }`}
+                              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all border ${whatIfRiskType === rt
+                                ? rt === 'cardiac'
+                                  ? 'bg-red-500/20 border-red-500/50 text-red-300'
+                                  : 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                                : 'bg-zinc-800/50 border-zinc-700 text-zinc-500 hover:text-zinc-300'
+                                }`}
                             >
                               {rt === 'cardiac' ? '🫀' : '🩸'} {rt === 'cardiac' ? 'Cardiac' : 'Diabetes'}
                             </button>
@@ -1883,7 +1923,7 @@ function Page() {
                         {/* ── Scenario Bars ── */}
                         <div className="space-y-2.5 mb-6">
                           {filtered.map((sc, idx) => {
-                            const delta  = sc.mean_risk - baseRisk;
+                            const delta = sc.mean_risk - baseRisk;
                             const isBase = sc.scenario === 'Current Trajectory';
                             return (
                               <div key={idx} className="group">
@@ -1907,7 +1947,7 @@ function Page() {
                                   <div
                                     className="absolute top-0 h-full rounded-full opacity-20"
                                     style={{
-                                      left:  `${(sc.p05 / MAX_BAR) * 100}%`,
+                                      left: `${(sc.p05 / MAX_BAR) * 100}%`,
                                       width: `${((sc.p95 - sc.p05) / MAX_BAR) * 100}%`,
                                       backgroundColor: sc.color,
                                     }}
@@ -1988,7 +2028,7 @@ function Page() {
                                     )}
                                     {isBetter
                                       ? ' your risk drops ≥5% if maintained for 6 months.'
-                                      : `estimated +${((sc.mean_risk - baseRisk)*100).toFixed(1)}% vs baseline.`
+                                      : `estimated +${((sc.mean_risk - baseRisk) * 100).toFixed(1)}% vs baseline.`
                                     }
                                   </p>
                                 </div>
@@ -2035,10 +2075,10 @@ function Page() {
       {showCHTModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl">
           <div className="cht-modal-content relative w-full max-w-5xl max-h-[90vh] bg-stone-950 border border-violet-900/40 rounded-[2rem] overflow-hidden shadow-[0_0_100px_rgba(139,92,246,0.15)]">
-            
+
             {/* Decorative gradient border */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-600 via-teal-500 to-amber-500 opacity-80" />
-            
+
             {/* Header */}
             <div className="relative p-6 border-b border-violet-900/20 bg-gradient-to-b from-violet-950/30 to-transparent">
               <div className="flex justify-between items-center">
@@ -2052,9 +2092,9 @@ function Page() {
                   </div>
                   {/* Health Tier Badge */}
                   {phmData && (
-                    <div className="cht-tier-badge ml-4 px-4 py-2 rounded-xl border flex items-center gap-2" 
-                         data-tier={phmData.health_tier}
-                         style={{ borderColor: phmData.tier_color + '60', backgroundColor: phmData.tier_color + '15' }}>
+                    <div className="cht-tier-badge ml-4 px-4 py-2 rounded-xl border flex items-center gap-2"
+                      data-tier={phmData.health_tier}
+                      style={{ borderColor: phmData.tier_color + '60', backgroundColor: phmData.tier_color + '15' }}>
                       <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: phmData.tier_color, boxShadow: `0 0 8px ${phmData.tier_color}` }} />
                       <span className="text-xs font-black uppercase tracking-wider" style={{ color: phmData.tier_color }}>
                         Tier {phmData.health_tier}: {phmData.tier_name}
@@ -2066,7 +2106,7 @@ function Page() {
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              
+
               {/* Tab Navigation */}
               <div className="flex gap-1 mt-5">
                 {([
@@ -2075,14 +2115,13 @@ function Page() {
                   { key: 'graph', label: 'Knowledge Graph', icon: '🕸️' },
                   { key: 'narrative', label: 'Agent Narrative', icon: '📜' },
                 ] as const).map(tab => (
-                  <button 
+                  <button
                     key={tab.key}
                     onClick={() => setChtTab(tab.key)}
-                    className={`cht-tab px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                      chtTab === tab.key 
-                        ? 'bg-stone-900 text-amber-400 active' 
-                        : 'text-stone-500 hover:text-stone-300 hover:bg-stone-900/50'
-                    }`}
+                    className={`cht-tab px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider transition-all ${chtTab === tab.key
+                      ? 'bg-stone-900 text-amber-400 active'
+                      : 'text-stone-500 hover:text-stone-300 hover:bg-stone-900/50'
+                      }`}
                   >
                     <span className="mr-1.5">{tab.icon}</span>{tab.label}
                   </button>
@@ -2134,11 +2173,10 @@ function Page() {
                                 <p className="text-sm font-black text-white">{typeof trend.current === 'number' ? (Number.isInteger(trend.current) ? trend.current : trend.current.toFixed(1)) : trend.current}</p>
                               </div>
                               <div className="text-right">
-                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                  trend.direction === 'worsening' ? 'bg-red-500/15 text-red-400' :
+                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${trend.direction === 'worsening' ? 'bg-red-500/15 text-red-400' :
                                   trend.direction === 'improving' ? 'bg-emerald-500/15 text-emerald-400' :
-                                  'bg-stone-800 text-stone-500'
-                                }`}>
+                                    'bg-stone-800 text-stone-500'
+                                  }`}>
                                   {trend.direction === 'worsening' ? '▲' : trend.direction === 'improving' ? '▼' : '—'} {Math.abs(trend.pct_change || 0).toFixed(1)}%
                                 </span>
                               </div>
@@ -2221,10 +2259,10 @@ function Page() {
                       <div>
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/60 mb-1">Feature Importance (SHAP Analysis)</h4>
                         <p className="text-xs text-stone-500 mb-4">Which factors contributed most to the current risk score</p>
-                        
+
                         <div className="space-y-3">
                           {phmData.feature_importances && Object.entries(phmData.feature_importances)
-                            .sort(([,a]: any, [,b]: any) => b - a)
+                            .sort(([, a]: any, [, b]: any) => b - a)
                             .map(([key, value]: [string, any], i: number) => {
                               const pct = (value * 100).toFixed(1);
                               const barColors: Record<string, string> = {
@@ -2246,9 +2284,9 @@ function Page() {
                                     <span className="text-[10px] font-bold text-stone-400 capitalize">{key.replace(/_/g, ' ')}</span>
                                   </div>
                                   <div className="flex-1 h-6 bg-stone-900/60 rounded-full overflow-hidden border border-stone-800/50 relative">
-                                    <div 
+                                    <div
                                       className="cht-shap-bar animate h-full rounded-full relative"
-                                      style={{ 
+                                      style={{
                                         width: `${Math.min(100, value * 100 * 2.5)}%`,
                                         background: `linear-gradient(90deg, ${color}40, ${color})`,
                                         animationDelay: `${i * 0.1}s`,
@@ -2338,7 +2376,7 @@ function Page() {
                           const graphData = chtData.graph_data || chtData.graph_visualization;
                           const nodes = graphData?.nodes || [];
                           const edges = graphData?.edges || [];
-                          
+
                           if (nodes.length === 0) {
                             return <p className="text-stone-600 text-center py-10 text-sm">Start the Python backend to see the live Knowledge Graph</p>;
                           }
@@ -2353,7 +2391,7 @@ function Page() {
                             Patient: 12, Disease: 10, Biomarker: 8, Medication: 7,
                             Symptom: 6, LifestyleFactor: 7, ClinicalGuideline: 6, OrganSystem: 8,
                           };
-                          
+
                           // Layout nodes in concentric circles by type
                           const typeOrder = ['Patient', 'Biomarker', 'Disease', 'OrganSystem', 'Symptom', 'Medication', 'LifestyleFactor', 'ClinicalGuideline'];
                           const positioned = nodes.map((n: any, i: number) => {
@@ -2454,12 +2492,11 @@ function Page() {
                         <div className="grid grid-cols-2 gap-4">
                           <div className="bg-stone-900/40 border border-stone-800/50 rounded-xl p-4">
                             <p className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Overall Severity</p>
-                            <p className={`text-xl font-black ${
-                              chtData.analysis.severity === 'CRITICAL' ? 'text-red-500' :
+                            <p className={`text-xl font-black ${chtData.analysis.severity === 'CRITICAL' ? 'text-red-500' :
                               chtData.analysis.severity === 'HIGH' ? 'text-orange-500' :
-                              chtData.analysis.severity === 'MODERATE' ? 'text-amber-500' :
-                              'text-emerald-500'
-                            }`}>{chtData.analysis.severity}</p>
+                                chtData.analysis.severity === 'MODERATE' ? 'text-amber-500' :
+                                  'text-emerald-500'
+                              }`}>{chtData.analysis.severity}</p>
                           </div>
                           <div className="bg-stone-900/40 border border-stone-800/50 rounded-xl p-4">
                             <p className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Primary Concern</p>
@@ -2524,7 +2561,7 @@ function Page() {
                   <span className="text-violet-400">3 Agents Active</span>
                 </span>
               </div>
-              <button 
+              <button
                 onClick={() => { fetchCHTData(); }}
                 className="px-4 py-2 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-bold hover:bg-violet-500/20 transition-colors"
               >
@@ -2535,8 +2572,8 @@ function Page() {
         </div>
       )}
 
-      {/* Put your actual page background content below */}
-      <div className="relative z-10 p-8 text-center" />
+      {/* Chat Bot Integration */}
+      <ChatBot onAction={handleChatAction} />
     </main>
   );
 }
