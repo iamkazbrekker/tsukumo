@@ -59,30 +59,43 @@ export async function GET() {
       await fs.mkdir(DRIVE_FOLDER_PATH, { recursive: true });
     }
 
-    // 1. Try to get the latest row from our synthetic stream
-    const steamData = await getNextStreamRow();
+    // 1. Try to read active JSON files first
+    let manualData: any = null;
+    try {
+      const files = await fs.readdir(DRIVE_FOLDER_PATH);
+      const jsonFile = files.find(f => f.endsWith('.json') && f !== 'stream_index.json');
+      if (jsonFile) {
+        const fileContent = await fs.readFile(path.join(DRIVE_FOLDER_PATH, jsonFile), 'utf-8');
+        manualData = JSON.parse(fileContent);
+      }
+    } catch(e) {}
 
-    // 2. Translate IoT Vitals to ML Features
+    // 2. Try to get the latest row from our synthetic stream
+    const steamData = manualData || await getNextStreamRow();
+
+    // 3. Translate IoT Vitals to ML Features
     // We mix real IoT stream with reasonable baseline metadata
     const parsedData: any = {
-      age: 42,
-      sysBP: 128 + (Math.random() * 10 - 5), // fluctuating baseline
-      diaBP: 82,
+      age: steamData?.age || 42,
+      sysBP: steamData?.blood_pressure_systolic || 128 + (Math.random() * 10 - 5), // fluctuating baseline
+      diaBP: steamData?.blood_pressure_diastolic || 82,
       heartRate: steamData?.heart_rate || 72,
       totChol: 210,
       HDLChol: 48,
-      glucose: 98,
-      bmi: 26.4,
+      glucose: steamData?.glucose_level || 98,
+      bmi: steamData?.bmi || 26.4,
       currentSmoker: 0,
       resp_rate: steamData?.resp_rate || 14,
       spo2: steamData?.spo2 || 98,
       activity: steamData?.activity_level || 0.1,
+      sleep_hours: steamData?.sleep_hours || 7,
+      stress_level: steamData?.stress_level || 0.1,
       // Map specialized model fields
       notes: `IoT Sync: HR=${steamData?.heart_rate}, RR=${steamData?.resp_rate}, Activity=${steamData?.activity_level}`,
       diagnosis: steamData?.heart_rate > 100 ? "Tachycardia observed in stream" : "Normal Sinus Rhythm"
     };
 
-    // 3. Send this data to the Python Microservice for prediction
+    // 4. Send this data to the Python Microservice for prediction
     let agentResults: any = { error: "FastAPI Agent service not reachable." };
 
     try {
@@ -90,16 +103,16 @@ export async function GET() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          heart_rate: parsedData.heart_rate || 72,
-          blood_pressure_systolic: parsedData.blood_pressure_systolic || 120,
-          blood_pressure_diastolic: parsedData.blood_pressure_diastolic || 80,
-          spo2: parsedData.spo2 || 98,
-          age: parsedData.age || 30,
+          heart_rate: parsedData.heartRate,
+          blood_pressure_systolic: parsedData.sysBP,
+          blood_pressure_diastolic: parsedData.diaBP,
+          spo2: parsedData.spo2,
+          age: parsedData.age,
           gender: parsedData.gender || 1,
-          sleep_hours: parsedData.sleep_hours || 7,
-          stress_level: parsedData.stress_level || 0.1,
-          glucose_level: parsedData.glucose_level || 100,
-          bmi: parsedData.bmi || 22,
+          sleep_hours: parsedData.sleep_hours,
+          stress_level: parsedData.stress_level,
+          glucose_level: parsedData.glucose,
+          bmi: parsedData.bmi,
         }),
       });
 
