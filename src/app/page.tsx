@@ -242,12 +242,13 @@ function Page() {
         if (!chtData) fetchCHTData();
         break;
       case 'FETCH_VITALS':
-        // Highlight vitals or scroll to them? 
-        // For now, let's just show a notification to acknowledge
+        // Open the CHT/analysis modal to show the health data to the user
+        setShowCHTModal(true);
+        if (!chtData) fetchCHTData();
         setLiveNotifications(prev => [{
           icon: '🔍',
           title: 'Michi Analysis',
-          desc: 'High-fidelity vital stream analysis completed.',
+          desc: 'High-fidelity vital stream analysis activated.',
           time: 'just now',
           severity: 'ok'
         }, ...prev].slice(0, 10));

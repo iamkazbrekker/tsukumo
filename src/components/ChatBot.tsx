@@ -30,29 +30,32 @@ export default function ChatBot({ onAction }: ChatBotProps) {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-
-    const userMessage: Message = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
+    await sendMessage(input);
     setInput('');
+  };
+
+  const sendMessage = async (text: string) => {
+    const userMessage: Message = { role: 'user', content: text };
+    setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, history: messages })
+        body: JSON.stringify({ message: text, history: messages })
       });
 
       const data = await res.json();
-      const assistantMessage: Message = { 
-        role: 'assistant', 
+      const assistantMessage: Message = {
+        role: 'assistant',
         content: data.response,
         action: data.action,
         suggestions: data.suggestions
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      
+
       if (data.action && onAction) {
         onAction(data.action);
       }
@@ -64,32 +67,46 @@ export default function ChatBot({ onAction }: ChatBotProps) {
     }
   };
 
+  // ── Michi Bot Overlay Config — adjust size & position here ────────────────
+  const botOverlayConfig = {
+    width:  '200px',   // Width of the Michi character image
+    height: '250px',   // Height of the Michi character image
+    bottom: '120px',   // Distance from bottom of screen
+    right:  '90px',    // Distance from right edge of screen
+  };
+
   return (
-    <div className="fixed bottom-36 right-28 z-[200]">
-      {/* Chat Bubble */}
+    <div
+      className="fixed z-[200]"
+      style={{ bottom: botOverlayConfig.bottom, right: botOverlayConfig.right }}
+    >
+      {/* Chat Bubble — Michi floating character */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="w-16 h-16 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 group relative"
-          style={{
-            background: 'transparent',
-          }}
+          className="flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 relative"
+          style={{ background: 'transparent', width: botOverlayConfig.width, height: botOverlayConfig.height }}
         >
-          <img src="/assets/thangka/michi-logo.png" alt="Michi" className="w-16 h-16 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] group-hover:animate-pulse" />
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full border-2 border-white animate-bounce" />
+          <img
+            src="/assets/thangka/michi-logo.png"
+            alt="Michi"
+            style={{ width: botOverlayConfig.width, height: botOverlayConfig.height }}
+            className="object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.7)]"
+          />
+          <div className="absolute top-0 right-0 w-4 h-4 bg-red-600 rounded-full border-2 border-white animate-bounce" />
         </button>
       )}
 
       {/* Chat Window */}
       {isOpen && (
-        <div 
+        <div
           className="w-96 h-[500px] flex flex-col bg-zinc-950/80 backdrop-blur-xl border border-yellow-700/50 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in duration-300"
         >
           {/* Header */}
           <div className="p-4 bg-gradient-to-r from-yellow-700/30 to-amber-900/30 border-b border-yellow-700/30 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 flex items-center justify-center">
-                <img src="/assets/thangka/michi-logo.png" alt="Michi" className="w-8 h-8 object-contain" />
+                <img src="/assets/thangka/michi-logo.png" alt="Michi" className="w-50 h-50 object-contain" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-yellow-500 tracking-widest uppercase">Michi Assistant</h3>
@@ -99,7 +116,7 @@ export default function ChatBot({ onAction }: ChatBotProps) {
                 </div>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setIsOpen(false)}
               className="p-1 hover:bg-white/10 rounded-lg transition-colors text-zinc-400 hover:text-white"
             >
@@ -108,18 +125,17 @@ export default function ChatBot({ onAction }: ChatBotProps) {
           </div>
 
           {/* Messages */}
-          <div 
+          <div
             ref={scrollRef}
             className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth cht-scroll"
           >
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div 
-                  className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                    m.role === 'user' 
-                      ? 'bg-yellow-600/20 text-yellow-100 border border-yellow-600/30' 
-                      : 'bg-zinc-900/50 text-zinc-300 border border-zinc-800'
-                  }`}
+                <div
+                  className={`max-w-[80%] p-3 rounded-2xl text-sm ${m.role === 'user'
+                    ? 'bg-yellow-600/20 text-yellow-100 border border-yellow-600/30'
+                    : 'bg-zinc-900/50 text-zinc-300 border border-zinc-800'
+                    }`}
                 >
                   {m.content}
                   {m.suggestions && (
@@ -127,20 +143,7 @@ export default function ChatBot({ onAction }: ChatBotProps) {
                       {m.suggestions.map((s, idx) => (
                         <button
                           key={idx}
-                          onClick={() => {
-                            setInput(s);
-                            // We don't call handleSend here because we want the user to see what they clicked
-                            // actually, let's just send it immediately for a better UX
-                            const fakeEvent = { preventDefault: () => {} };
-                            setTimeout(() => {
-                               const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
-                               if (inputEl) {
-                                 inputEl.value = s;
-                                 const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
-                                 inputEl.dispatchEvent(enterEvent);
-                               }
-                            }, 10);
-                          }}
+                          onClick={() => sendMessage(s)}
                           className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-[10px] font-bold text-yellow-500 transition-all active:scale-95"
                         >
                           {s}
@@ -151,12 +154,12 @@ export default function ChatBot({ onAction }: ChatBotProps) {
 
                   {m.action && (
                     <div className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-2">
-                       <div className="text-[10px] uppercase tracking-widest text-yellow-500 font-bold flex items-center gap-1.5">
+                      <div className="text-[10px] uppercase tracking-widest text-yellow-500 font-bold flex items-center gap-1.5">
                         <span className="w-1 h-1 bg-yellow-500 rounded-full animate-ping" />
                         Executing {m.action.type.replace('_', ' ')}
                       </div>
                       {m.action.type === 'BOOK_APPOINTMENT' && (
-                        <button 
+                        <button
                           onClick={() => onAction && onAction(m.action)}
                           className="w-full py-2 bg-yellow-600 hover:bg-yellow-500 text-black text-[10px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-[0_4px_12px_rgba(218,165,32,0.3)]"
                         >
