@@ -1,5 +1,6 @@
 import { PatientVitals } from '../ai/geminiClient';
 import express from 'express';
+import cors from 'cors';
 
 const TSUKUMO_BASE = process.env.TSUKUMO_API_BASE || 'http://localhost:3000';
 
@@ -28,6 +29,7 @@ export async function fetchLatestVitals(): Promise<PatientVitals> {
 
 export function startWebhookServer(onCritical: (data: any) => void) {
   const app = express();
+  app.use(cors());
   app.use(express.json());
 
   // Tsukumo can POST here when a critical event is detected

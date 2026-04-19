@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // --- THEME DATA: Define the look and feel for each organ ---
 const organThemes: Record<string, any> = {
@@ -199,8 +199,16 @@ function Page() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'booking' | 'confirmed' | 'failed'>('idle');
   const [finalBookingData, setFinalBookingData] = useState<any>(null);
-  const [lastAutoPoppedReason, setLastAutoPoppedReason] = useState<string | null>(null);
-  const [stressLevel, setStressLevel] = useState(0.1);
+   const [lastAutoPoppedReason, setLastAutoPoppedReason] = useState<string | null>(null);
+   const [mutedReasons, setMutedReasons] = useState<string[]>([]);
+   const mutedReasonsRef = useRef<string[]>([]);
+   
+   // Sync ref with state
+   useEffect(() => {
+     mutedReasonsRef.current = mutedReasons;
+   }, [mutedReasons]);
+
+   const [stressLevel, setStressLevel] = useState(0.1);
 
   // --- COGNITIVE HEALTH TWIN STATE ---
   const [showCHTModal, setShowCHTModal] = useState(false);
@@ -301,7 +309,7 @@ function Page() {
           prepped_booking: {
             specialty: "Critical Care — Cardiology",
             urgency: "High",
-            reason: `CRITICAL: Cardiac arrest detected (HR: ${simHR} BPM, SpO2: ${simSpo2}%). Agentic dispatch initiated.`,
+            reason: "CRITICAL: Multiple vital failures (Cardiac/Respiratory) detected in live stream. Autonomous intervention required.",
             recommended_window: "IMMEDIATE"
           },
           internal_monologue: [
@@ -360,7 +368,8 @@ function Page() {
           setPreppedBooking(data.prepped_booking);
           if (data.prepped_booking.urgency === 'High' && 
               bookingStatus === 'idle' && 
-              data.prepped_booking.reason !== lastAutoPoppedReason
+              data.prepped_booking.reason !== lastAutoPoppedReason &&
+              !mutedReasonsRef.current.includes(data.prepped_booking.reason)
           ) {
               setShowBookingModal(true);
               setLastAutoPoppedReason(data.prepped_booking.reason);
@@ -826,19 +835,20 @@ function Page() {
                       })
                     }).catch(() => {});
 
-                    setEmergencyTimeLeft(30);
-                    const timer = setInterval(() => {
-                      setEmergencyTimeLeft(prev => {
-                        if (prev <= 1) {
-                          clearInterval(timer);
-                          setEmergencyOverride(false);
-                          return 0;
-                        }
-                        return prev - 1;
-                      });
-                    }, 1000);
-                  }}
-                  disabled={emergencyOverride}
+                     setEmergencyTimeLeft(30);
+                     const timer = setInterval(() => {
+                       setEmergencyTimeLeft(prev => {
+                         if (prev <= 1) {
+                           clearInterval(timer);
+                           setEmergencyOverride(false);
+                           setMutedReasons([]); // Reset suppression so future simulations can trigger alerts again
+                           return 0;
+                         }
+                         return prev - 1;
+                       });
+                     }, 1000);
+                   }}
+                   disabled={emergencyOverride}
                   className={`w-full py-3 rounded-lg font-bold text-sm border transition-all ${
                     emergencyOverride 
                     ? 'border-red-500/50 bg-red-500/10 text-red-500 cursor-not-allowed' 
@@ -1061,10 +1071,10 @@ function Page() {
           </div>
         )}
       </div>
-
       {/* ======== BOTTOM ACTION BAR ======== */}
       <div className="fixed bottom-10 left-10 z-[150] flex gap-3">
         {/* Doctor Appointment Button */}
+        {preppedBooking && !mutedReasons.includes(preppedBooking.reason) && (
         <button 
           onClick={() => setShowBookingModal(true)}
           className={`
@@ -1083,15 +1093,12 @@ function Page() {
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 opacity-80">Autonomous Care</p>
             <h3 className="text-sm font-bold text-amber-100 tracking-wide">Doctor Appointment</h3>
           </div>
-          {preppedBooking && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
-          )}
-          {preppedBooking && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-white rounded-full" />
-            </div>
-          )}
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center">
+            <div className="w-1.5 h-1.5 bg-white rounded-full" />
+          </div>
         </button>
+        )}
 
         {/* Cognitive Health Twin Button */}
         <button 
@@ -1207,31 +1214,39 @@ function Page() {
             <div className="p-8 pt-0 flex gap-4">
               <button 
                 disabled={!preppedBooking || bookingStatus === 'booking'}
-                onClick={async () => {
-                  setBookingStatus('booking');
-                  try {
-                    const res = await fetch('http://127.0.0.1:5000/confirm-booking', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            booking_id: `HEART-REQ-${Date.now()}`,
-                            preferred_time_window: preppedBooking?.recommended_window || 'Normal'
-                        })
-                    });
-                    const result = await res.json();
-                    setFinalBookingData(result);
-                    setBookingStatus('confirmed');
-                  } catch (e) {
-                    setBookingStatus('failed');
+                  onClick={async () => {
+                    setBookingStatus('booking');
+                    try {
+                      const res = await fetch('http://127.0.0.1:5000/confirm-booking', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                              booking_id: `HEART-REQ-${Date.now()}`,
+                              preferred_time_window: preppedBooking?.recommended_window || 'Normal'
+                          })
+                      });
+                      const result = await res.json();
+                      setFinalBookingData(result);
+                      setBookingStatus('confirmed');
+                      if (preppedBooking?.reason) {
+                        setMutedReasons(prev => [...prev, preppedBooking.reason]);
+                      }
+                    } catch (e) {
+                      setBookingStatus('failed');
+                    }
+                  }}
+                  className={`flex-[2] py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-sm transition-all duration-500 ${!preppedBooking ? 'bg-stone-900 text-stone-700 cursor-not-allowed' : 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] shadow-lg'}`}
+                >
+                  {bookingStatus === 'booking' ? 'Invoking Sacred Healer...' : bookingStatus === 'confirmed' ? 'Successfully Linked' : 'Confirm Healer Appointment'}
+                </button>
+                <button onClick={() => {
+                  setShowBookingModal(false);
+                  if (preppedBooking?.reason) {
+                    setMutedReasons(prev => [...prev, preppedBooking.reason]);
                   }
-                }}
-                className={`flex-[2] py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-sm transition-all duration-500 ${!preppedBooking ? 'bg-stone-900 text-stone-700 cursor-not-allowed' : 'bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] shadow-lg'}`}
-              >
-                {bookingStatus === 'booking' ? 'Invoking Sacred Healer...' : bookingStatus === 'confirmed' ? 'Successfully Linked' : 'Confirm Healer Appointment'}
-              </button>
-              <button onClick={() => setShowBookingModal(false)} className="flex-1 py-4 rounded-2xl bg-stone-900 border border-stone-800 text-stone-400 font-bold uppercase tracking-[0.1em] text-xs hover:text-white transition-all">
-                Dismiss
-              </button>
+                }} className="flex-1 py-4 rounded-2xl bg-stone-900 border border-stone-800 text-stone-400 font-bold uppercase tracking-[0.1em] text-xs hover:text-white transition-all">
+                  Dismiss
+                </button>
             </div>
 
             {/* Success Overlay */}
